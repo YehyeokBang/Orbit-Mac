@@ -196,7 +196,8 @@ Mission Control 진입 시 첫 포커스를 어디에 둘 것인가:
 ✓ Tab/Enter 동작 확인
 ✓ Accessibility 권한 고정 (/Applications 운용 방식)
 
-□ 첫 Tab 시 index=0 자동 포커스 (현재 index=1부터 시작 — KeyTap.swift:81)
+✓ 첫 Tab 시 index=0 자동 포커스 (currentIndex 초기값 -1로 수정)
+✓ 선택 thumbnail 파란 테두리 오버레이 (SelectionOverlay.swift)
 □ Shift+Tab 체감 테스트 (구현은 됨)
 □ 일주일 dogfood 후 섹션 1 최종 평가
 □ PoC 이후 방향 결정 (dmg 패키징, 배포 등)

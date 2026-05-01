@@ -103,3 +103,30 @@
 - dogfood 이슈 수집
 
 ---
+
+## 2026-05-02 — 세션 4 (오버레이 + 배포 자동화)
+
+**한 일:**
+- 불필요한 probe/ 스크립트 제거 (검증 완료, 역할 끝)
+- GIT_CONVENTION.md 작성, CLAUDE.md 반영
+- SPEC.md 현황 최신화 (Status ACTIVE, 체크박스 갱신)
+- MIT 라이센스 추가 (qkddpgur318@gmail.com)
+- 첫 Tab index=0 버그 수정 (currentIndex 초기값 -1)
+- SelectionOverlay.swift 추가: Tab 이동 시 선택 thumbnail에 파란 테두리 표시
+  - MissionControlDetector 폴링으로 MC 종료 시 자동 hide
+  - NSScreen.screens.first로 멀티모니터 Y좌표 변환 수정
+- deploy.sh 추가: `./deploy.sh` 한 번으로 빌드→배포→실행→로그 확인
+- Xcode Personal Team 연결 → TeamIdentifier 부여 → TCC 권한 영구 유지
+
+**발견:**
+- tccutil reset 사용하면 안 됨 — TCC 날림. 권한 문제 시 시스템 설정 토글만.
+- ad-hoc 서명은 빌드마다 해시 바뀌어 TCC 리셋. Personal Team 서명으로 해결.
+- SelectionOverlay window level=maximumWindow로 Mission Control 위에 정상 표시 확인.
+- NSScreen.main은 포커스 창 기준이라 멀티모니터에서 Y좌표 어긋남 → screens.first 사용.
+
+**다음 세션:**
+- Shift+Tab 체감 테스트
+- 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
+- PoC 이후 방향 결정 (README 작성, 배포 등)
+
+---

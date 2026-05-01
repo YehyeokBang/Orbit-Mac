@@ -7,6 +7,8 @@ final class KeyTap {
     private var currentIndex: Int = -1
     private var thumbnails: [WindowThumbnail] = []
     private let overlay = SelectionOverlay()
+    private var mcWasActive: Bool = false
+    private var mcWatcher: DispatchSourceTimer?
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -35,10 +37,75 @@ final class KeyTap {
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        startMCWatcher()
+        startSpaceWatcher()
         Logger.log("[KeyTap] 시작됨")
     }
 
+    // MC 상태 + thumbnail 변화를 주기적으로 감시
+    // - MC 종료 시 → resetState()
+    // - MC 활성 중 windowID 세트 변경 → 데스크탑 전환이므로 resetState()
+    // - MC 활성 중 좌표만 변경 → 레이아웃 변경(Spaces 바 펼침 등)이므로 오버레이 위치만 업데이트
+    private func startMCWatcher() {
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + 0.2, repeating: 0.2)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            let isActive = MissionControlDetector.isActive()
+
+            if self.mcWasActive && !isActive {
+                self.resetState()
+                Logger.log("[KeyTap] MC 종료 감지 → 리셋")
+            } else if isActive && !self.thumbnails.isEmpty {
+                let updated = ThumbnailLocator.fetchThumbnails()
+                let oldIDs = self.thumbnails.map { $0.windowID }
+                let newIDs = updated.map { $0.windowID }
+
+                if Set(oldIDs) != Set(newIDs) {
+                    // 데스크탑 전환 — 윈도우 목록 자체가 바뀜
+                    self.resetState()
+                    Logger.log("[KeyTap] 윈도우 목록 변경 → 리셋")
+                } else if self.currentIndex >= 0 {
+                    // 같은 창들인데 좌표가 바뀜 — Spaces 바 레이아웃 변경 등
+                    let currentWindowID = self.thumbnails[self.currentIndex].windowID
+                    if let newIndex = updated.firstIndex(where: { $0.windowID == currentWindowID }) {
+                        self.thumbnails = updated
+                        self.currentIndex = newIndex
+                        self.overlay.updateFrame(updated[newIndex].frame)
+                    }
+                } else {
+                    self.thumbnails = updated
+                }
+            }
+
+            self.mcWasActive = isActive
+        }
+        timer.resume()
+        mcWatcher = timer
+    }
+
+    // Ctrl+Arrow 스페이스 전환 시 index 리셋 — MC가 활성 상태를 유지한 채 스페이스만 바뀌는 경우
+    private func startSpaceWatcher() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.resetState()
+            Logger.log("[KeyTap] 스페이스 전환 감지 → index 리셋")
+        }
+    }
+
+    private func resetState() {
+        currentIndex = -1
+        thumbnails = []
+        overlay.hide()
+    }
+
     func stop() {
+        mcWatcher?.cancel()
+        mcWatcher = nil
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         Logger.log("[KeyTap] 중지됨")
     }

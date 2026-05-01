@@ -41,6 +41,15 @@ final class SelectionOverlay {
         Logger.log("[SelectionOverlay] hide")
     }
 
+    // 오버레이 위치만 업데이트 (타이머 재시작 없음) — 레이아웃 변경 시 사용
+    func updateFrame(_ cgFrame: CGRect) {
+        guard let window else { return }
+        let appKitFrame = toAppKit(cgFrame)
+        window.contentView?.setFrameSize(appKitFrame.size)
+        window.contentView?.needsDisplay = true
+        window.setFrame(appKitFrame, display: true)
+    }
+
     // Mission Control이 닫히면 오버레이 자동 제거
     private func startPolling() {
         stopPolling()

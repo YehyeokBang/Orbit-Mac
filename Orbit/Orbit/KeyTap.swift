@@ -4,7 +4,7 @@ import Cocoa
 // Mission Control 비활성 상태에서는 아무것도 가로채지 않음.
 final class KeyTap {
     private var tap: CFMachPort?
-    private var currentIndex: Int = 0
+    private var currentIndex: Int = -1
     private var thumbnails: [WindowThumbnail] = []
 
     func start() {

@@ -78,3 +78,28 @@
 - 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
 
 ---
+
+## 2026-05-02 — 세션 3 (권한 문제 해결 + 배포 절차 확립)
+
+**한 일:**
+- Accessibility 권한이 재시작마다 풀리는 원인 파악 및 해결
+- /Applications/Orbit.app 설치 → 고정 바이너리 운용 방식 확립
+- 배포 절차 CLAUDE.md에 문서화
+
+**발견:**
+- Xcode 빌드 시마다 바이너리 해시 변경 → macOS TCC가 새 앱으로 인식 → Accessibility 권한 초기화
+- 해결책: /Applications에 복사해두고, 코드 변경 후 cp -R로 덮어쓰기
+- `tccutil reset Accessibility dev.bang.Orbit` 으로 TCC 초기화 후 재등록하면 깔끔하게 해결됨
+
+**확립된 배포 절차 (CLAUDE.md 빌드/실행 섹션에 상세 기록):**
+1. Xcode 빌드 (Cmd+B)
+2. `kill $(pgrep Orbit)` + `cp -R DerivedData/…/Orbit.app /Applications/`
+3. `open /Applications/Orbit.app`
+4. 로그에서 `[KeyTap] 시작됨` 확인
+
+**다음 세션:**
+- 첫 Tab 시 index=0 자동 포커스 (현재 index=1부터 시작)
+- Shift+Tab 체감 테스트
+- dogfood 이슈 수집
+
+---

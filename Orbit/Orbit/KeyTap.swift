@@ -9,8 +9,7 @@ final class KeyTap {
 
     func start() {
         guard AXIsProcessTrusted() else {
-            Logger.log("[KeyTap] Accessibility 권한 없음 — 권한 부여 후 재시작 필요")
-            Permissions.showAccessibilityAlert()
+            Logger.log("[KeyTap] Accessibility 권한 없음 — 시스템 설정 > 손쉬운 사용에서 Orbit 허용 후 재시작")
             return
         }
 

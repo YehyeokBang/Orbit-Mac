@@ -1,6 +1,6 @@
 # Orbit-mac PoC Spec
 
-**Status:** DRAFT — 다음 세션에서 구현 시작
+**Status:** ACTIVE — Approach A 구현 완료, dogfood 진행 중
 **Last updated:** 2026-05-02
 **Author:** yhbang@zimssa.com
 
@@ -19,10 +19,10 @@ App Store 배포 없음 (개발자 계정 없음). 코드사이닝/notarization 
 이 PoC의 **단 하나의 목적**: "Mission Control 위에서 키보드만으로 창 선택 경험"이 기술적으로 만들 수 있고, 실제로 손이 키보드에서 안 떨어지는 흐름을 만드는지 확인.
 
 검증 성공 기준:
-- [ ] Mission Control 활성 상태에서 Tab을 누르면 다음 창 thumbnail로 시각 포커스가 이동한다
-- [ ] Shift+Tab은 반대 방향
-- [ ] Enter를 누르면 선택된 창으로 이동하고 Mission Control이 닫힌다
-- [ ] 본인이 일주일 dogfood해보고 손이 마우스로 안 가는지 본인 감으로 평가
+- [x] Mission Control 활성 상태에서 Tab을 누르면 다음 창 thumbnail로 시각 포커스가 이동한다 (세션 2 확인)
+- [x] Shift+Tab은 반대 방향 (구현 완료, 체감 테스트 진행 중)
+- [x] Enter를 누르면 선택된 창으로 이동하고 Mission Control이 닫힌다 (세션 2 확인)
+- [ ] 본인이 일주일 dogfood해보고 손이 마우스로 안 가는지 본인 감으로 평가 (진행 중)
 
 **이 PoC가 답하지 않는 것:**
 - 다른 사용자에게도 가치 있는가
@@ -53,9 +53,9 @@ Enter 누름
 ```
 
 **검증 필수 가정:**
-1. Mission Control 활성 중에 CGEventTap (`.cghidEventTap`, `.headInsertEventTap`)으로 키 이벤트를 가로챌 수 있다 — Mission Control Plus가 증명
-2. Mission Control 활성 중에 thumbnail의 화면 좌표를 얻을 수 있다 — **이게 미검증, 가장 큰 리스크**
-3. CGWarpMouseCursorPosition + 합성 클릭이 Mission Control 위에서 동작한다 — 미검증
+1. Mission Control 활성 중에 CGEventTap (`.cghidEventTap`, `.headInsertEventTap`)으로 키 이벤트를 가로챌 수 있다 — **✓ 확인** (세션 2)
+2. Mission Control 활성 중에 thumbnail의 화면 좌표를 얻을 수 있다 — **✓ 확인** (세션 2, CGWindowList layer=0 frame이 thumbnail 좌표로 변환됨)
+3. CGWarpMouseCursorPosition + 합성 클릭이 Mission Control 위에서 동작한다 — **✓ 확인** (세션 2, 듀얼 모니터 음수 좌표도 동작)
 
 ### Approach B — Self-Switcher (Approach A 좌표 획득 실패 시)
 
@@ -71,9 +71,9 @@ Mission Control 자체를 안 쓰고 자체 풀스크린 그리드 UI. AltTab의
 
 ---
 
-## 3. 다음 세션 첫 30분: 가정 검증
+## 3. ~~다음 세션 첫 30분: 가정 검증~~ (완료)
 
-코드 짜기 전에 Approach A 2번 가정을 검증해야 함. 이게 안 되면 즉시 Approach B로 전환.
+세션 2에서 모든 가정 검증 완료. Approach A 채택 확정.
 
 ### 검증 절차
 
@@ -180,22 +180,24 @@ Mission Control 진입 시 첫 포커스를 어디에 둘 것인가:
 
 ## 8. Open Questions
 
-다음 세션에서 답해야 함:
-
-1. macOS 버전이 정확히 뭐고 거기서 Accessibility Inspector로 thumbnail이 보이는가
-2. Approach A 실패 시 Approach B로 전환할지, 아니면 private API hack을 시도할지
-3. PoC 성공 후 다음 단계: dmg 패키징? 다른 사람에게 배포 시도?
+1. ~~macOS 버전이 정확히 뭐고 거기서 Accessibility Inspector로 thumbnail이 보이는가~~ → macOS 15.6.1 Sequoia. CGWindowList 방식으로 해결 (AX Inspector 불필요)
+2. ~~Approach A 실패 시 Approach B로 전환할지, 아니면 private API hack을 시도할지~~ → Approach A 성공, Approach B 불필요
+3. PoC 성공 후 다음 단계: dmg 패키징? 다른 사람에게 배포 시도? (dogfood 완료 후 결정)
 
 ---
 
-## 9. 다음 세션 시작 시 체크리스트
+## 9. 현재 남은 작업
 
 ```
-□ Xcode 설치돼있는가 (없으면 설치)
-□ macOS 버전 확인 후 SPEC.md에 기록
-□ 30분 가정 검증 (섹션 3) 먼저 진행
-□ 검증 결과를 context.md에 기록
-□ Approach A 또는 B 결정
-□ 스캐폴딩 생성 (섹션 4)
-□ KeyTap.swift부터 — Mission Control 활성 중 Tab 가로채기 1차 검증
+✓ Xcode 설치 확인
+✓ macOS 버전 확인 (15.6.1 Sequoia)
+✓ 가정 검증 (섹션 3)
+✓ Approach A 결정 및 스캐폴딩 생성
+✓ Tab/Enter 동작 확인
+✓ Accessibility 권한 고정 (/Applications 운용 방식)
+
+□ 첫 Tab 시 index=0 자동 포커스 (현재 index=1부터 시작 — KeyTap.swift:81)
+□ Shift+Tab 체감 테스트 (구현은 됨)
+□ 일주일 dogfood 후 섹션 1 최종 평가
+□ PoC 이후 방향 결정 (dmg 패키징, 배포 등)
 ```

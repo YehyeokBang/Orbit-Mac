@@ -24,8 +24,9 @@ if pgrep -x Orbit > /dev/null 2>&1; then
     sleep 0.5
 fi
 
-# /Applications에 복사
-cp -R "$DERIVED" "$DEST"
+# /Applications에 복사 (기존 번들 삭제 후 교체 — cp -R은 기존 디렉토리에 병합되어 바이너리가 갱신 안 되는 버그 있음)
+rm -rf "$DEST"
+cp -R "$DERIVED" /Applications/
 
 # 재실행
 open "$DEST"

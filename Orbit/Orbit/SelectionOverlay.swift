@@ -25,12 +25,16 @@ final class SelectionOverlay {
             win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size))
             window = win
         } else {
+            // orderOut 후 재표시 시 level이 리셋될 수 있으므로 매번 재지정
+            window?.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
             window?.contentView?.setFrameSize(appKitFrame.size)
             window?.contentView?.needsDisplay = true
             window?.setFrame(appKitFrame, display: true)
         }
 
         window?.orderFrontRegardless()
+        let screensInfo = NSScreen.screens.map { "(\(Int($0.frame.width))×\(Int($0.frame.height)) at \(Int($0.frame.origin.x)),\(Int($0.frame.origin.y)))" }.joined(separator: " | ")
+        Logger.log("[SelectionOverlay] screens: \(screensInfo)")
         Logger.log("[SelectionOverlay] show at appKit=(\(Int(appKitFrame.minX)),\(Int(appKitFrame.minY))) \(Int(appKitFrame.width))×\(Int(appKitFrame.height))")
         startPolling()
     }
@@ -84,10 +88,12 @@ final class SelectionOverlay {
 
 private class OverlayView: NSView {
     override func draw(_ dirtyRect: NSRect) {
-        let inset: CGFloat = 3
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: inset, dy: inset), xRadius: 6, yRadius: 6)
-        path.lineWidth = 3
-        NSColor.systemBlue.withAlphaComponent(0.9).setStroke()
+        // DEBUG: 빨간 반투명 채움 + 두꺼운 테두리 (좌표/z-order 확인용)
+        NSColor.red.withAlphaComponent(0.3).setFill()
+        bounds.fill()
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 3), xRadius: 6, yRadius: 6)
+        path.lineWidth = 6
+        NSColor.red.withAlphaComponent(0.9).setStroke()
         path.stroke()
     }
 }

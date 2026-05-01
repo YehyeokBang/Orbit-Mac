@@ -198,7 +198,7 @@ Mission Control 진입 시 첫 포커스를 어디에 둘 것인가:
 
 ✓ 첫 Tab 시 index=0 자동 포커스 (currentIndex 초기값 -1로 수정)
 ✓ 선택 thumbnail 파란 테두리 오버레이 (SelectionOverlay.swift)
-✓ MC 내 데스크탑 전환 시 오버레이/index 리셋 (세션 6 검증 완료)
+△ MC 내 데스크탑 전환 시 오버레이/index 리셋 (index 리셋 ✓, 오버레이 표시 ✗ — 세션 7 미해결)
 ✓ Spaces 바 레이아웃 변경 시 오버레이 위치 업데이트 (세션 6 검증 완료)
 □ Shift+Tab 체감 테스트 (구현은 됨)
 □ 일주일 dogfood 후 섹션 1 최종 평가

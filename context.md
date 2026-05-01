@@ -185,7 +185,50 @@
 - Spaces 바 레이아웃 변경(버벅임) → 폴링 특성상 200ms 이내 반영. PoC 단계에서는 허용 범위
 
 **다음 세션:**
-- Shift+Tab 체감 테스트
-- 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
+- 오버레이 z-order 버그 계속 디버그 (아래 세션 7 참조)
 
+---
 
+## 2026-05-02 — 세션 7 (오버레이 z-order 미해결 디버그)
+
+**목표:** 데스크탑 전환 후 Tab 시 오버레이가 보이지 않는 문제 원인 파악
+
+**현재 코드 상태 (커밋 보류 중 디버그 빌드):**
+- `SelectionOverlay.swift`: 디버그 모드 — 빨간 반투명 채움 + 6px 두꺼운 테두리, screens 로그 추가
+- `SelectionOverlay.swift`: `show()` else 분기에서 `window.level` 매번 재지정 추가
+
+**확인된 사실:**
+- 스크린: 2560×1440 단일 모니터
+- 모든 `appKit` 좌표가 화면 범위 안에 있음 (검증 완료)
+- Tab은 잡힘 (`[KeyTap] Tab 가로챔` 로그 확인)
+- `SelectionOverlay show` 로그도 매 Tab마다 정상 출력됨
+- 그러나 **빨간 반투명 채움조차 육안으로 보이지 않음** → 얇은 테두리 문제가 아님
+- `window.level` 매번 재지정해도 동일 → 단순 level 리셋 문제도 아님
+
+**핵심 미스터리:**
+- 전환 전(Desktop 3): 오버레이 정상 표시 ✓
+- 전환 후(Desktop 4): `show()` 호출되고 좌표도 유효한데 완전히 안 보임 ✗
+- Desktop 4로 전환 후 Desktop 3으로 돌아와도 안 보임 (스위치 이후 전체적으로 망가짐)
+
+**시도했으나 효과 없었던 것:**
+1. `activeSpaceDidChangeNotification` 제거 (notification 다중 발화 → overlay 숨김 버그 수정 — 이건 별개 문제로 해결됨)
+2. `handleTab` race condition 차단 (index 문제 해결 — 이것도 별개)
+3. `window.level` 매번 재지정 → 효과 없음
+4. `deploy.sh` cp 버그 수정 (rm -rf 후 재복사) → 이전 배포들이 구버전 바이너리를 사용한 문제 해결
+
+**의심 가는 원인 후보 (다음 세션 조사):**
+1. `orderOut(nil)` 후 `orderFrontRegardless()` 시 macOS가 창을 잘못된 레이어에 배치하는 문제
+   - 테스트: `orderOut` 대신 `setAlphaValue(0)` / `setAlphaValue(1)` 로 숨기기 (창을 실제로 없애지 않음)
+2. `.canJoinAllSpaces` 동작이 space 전환 후 깨지는 문제
+   - 테스트: `collectionBehavior`를 `show()` 마다 재설정
+3. 창이 보이지 않는 레이어/window server context에 있는 것
+   - 테스트: `window.isVisible`, `window.isOnActiveSpace` 로그 추가
+
+**다음 세션 첫 시도:**
+`orderOut` 대신 `setAlphaValue(0)` 로 숨기기 → 창을 화면에서 제거하지 않고 투명하게만 만들기
+→ `SelectionOverlay.hide()` 에서 `window?.orderOut(nil)` → `window?.alphaValue = 0`
+→ `SelectionOverlay.show()` 에서 `window?.orderFrontRegardless()` → `window?.alphaValue = 1`
+
+**주의: 현재 SelectionOverlay.swift는 디버그 빌드 상태. 문제 해결 후 원복 필요:**
+- OverlayView.draw(): 빨간 채움 → 원래 파란 테두리로
+- show(): `screens:` 로그 제거

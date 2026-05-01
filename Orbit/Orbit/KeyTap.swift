@@ -6,6 +6,7 @@ final class KeyTap {
     private var tap: CFMachPort?
     private var currentIndex: Int = -1
     private var thumbnails: [WindowThumbnail] = []
+    private let overlay = SelectionOverlay()
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -59,6 +60,7 @@ final class KeyTap {
 
         case 36: // Enter
             Logger.log("[KeyTap] Enter 가로챔")
+            overlay.hide()
             CursorWarper.clickAtCurrentPosition()
             return nil
 
@@ -83,5 +85,6 @@ final class KeyTap {
         let target = thumbnails[currentIndex]
         Logger.log("[KeyTap] → index=\(currentIndex) \(target.ownerName) center=(\(Int(target.center.x)), \(Int(target.center.y)))")
         CursorWarper.warp(to: target.center)
+        overlay.show(frame: target.frame)
     }
 }

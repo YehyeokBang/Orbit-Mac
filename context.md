@@ -130,3 +130,36 @@
 - PoC 이후 방향 결정 (README 작성, 배포 등)
 
 ---
+
+## 2026-05-02 — 세션 5 (오버레이 버그 대응 + 배포 안정화)
+
+**한 일:**
+- 첫 Tab index=0 버그 수정 확인 (currentIndex=-1, 세션 4 반영)
+- deploy.sh에 xcodebuild 빌드 단계 통합 (Cmd+B 없이 `./deploy.sh` 한 번에 끝)
+- Xcode Personal Team 서명 → TeamIdentifier 부여 → TCC 권한 영구 유지 확인
+- SelectionOverlay 버그 2가지 발견 및 수정 시도:
+  1. MC 내 데스크탑 전환 시 오버레이 사라지고 index 유지 문제
+  2. 마우스를 Spaces 바로 올리면 창이 아래로 내려가며 오버레이 좌표 어긋남
+- mcWatcher 개선: thumbnail windowID 세트 변경 감지 → resetState(), 좌표 변경 → updateFrame()
+- activeSpaceDidChangeNotification 추가 (MC 외부 스페이스 전환 대응)
+- SelectionOverlay.updateFrame() 추가
+
+**미해결 문제:**
+- `clean build` 후 권한이 또 리셋됨 — Personal Team 서명인데도 TCC가 재인증 요구
+  - deploy.sh의 일반 빌드(not clean)는 권한 유지됨. clean build가 문제.
+  - deploy.sh에서 clean을 제거하면 됨 (현재 deploy.sh는 clean 없이 build만 함 — 정상)
+  - 이번 세션에서 수동 clean build를 해서 권한이 한 번 더 풀린 것
+- 데스크탑 전환 / Spaces 바 레이아웃 변경 수정 코드 작성했으나 권한 문제로 실제 동작 미검증
+
+**발견:**
+- xcodebuild + strings로 Swift 로그 문자열 검색 시 한글이 포함되면 검색 안 됨 (Swift 문자열 인코딩 차이)
+- Swift 코드가 Orbit.debug.dylib에 컴파일됨 (main executable이 아닌 dylib). strings 검색 대상 다름.
+- clean build는 TCC 권한 초기화 유발 가능 → deploy.sh는 clean 없이 사용할 것
+
+**다음 세션 시작 시:**
+1. 권한 재부여 1회 필요 (시스템 설정 → 손쉬운 사용 → Orbit ON)
+2. MC 데스크탑 전환 시 `[KeyTap] 윈도우 목록 변경 → 리셋` 로그 확인
+3. Spaces 바 레이아웃 변경 시 `updateFrame` 동작 확인
+4. 동작 안 하면 mcWatcher 타이머 실행 여부 확인 (tick 로그 추가해서 디버그)
+
+---

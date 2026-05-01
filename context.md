@@ -53,8 +53,28 @@
 
 ## 2026-05-02 — 세션 2 (검증 + 구현 시작)
 
-**목표:** SPEC.md 섹션 3 가정 검증 → Approach A/B 결정 → 스캐폴딩 생성
+**한 일:**
+- CGWindowListCopyWindowInfo 딜레이 검증: MC 활성 시 layer=0 창 frame이 thumbnail 좌표로 변환됨 확인
+- Approach A 채택 확정
+- 스캐폴딩 생성: AppDelegate, KeyTap, ThumbnailLocator, CursorWarper, MissionControlDetector, Logger, Permissions
+- main.swift 방식으로 entry point 수정 (@main + 스토리보드 없는 조합 문제 해결)
+- App Sandbox 비활성화 (PoC라 불필요)
+- Accessibility + 화면 기록 권한 부여 후 동작 확인
 
-**진행 중...**
+**검증 결과 — 성공:**
+- Tab → 8개 thumbnail 감지 → 커서 warp ✓
+- Enter → 합성 클릭 → 창 전환 + Mission Control 자동 종료 ✓
+- 듀얼 모니터 음수 좌표도 정상 동작 ✓
+- SPEC.md 섹션 1 성공 기준 달성
+
+**발견:**
+- AX inspector는 원래 창 좌표 반환 (thumbnail 좌표 아님) — CGWindowList가 정답이었음
+- MissionControlDetector layer=18 방식: 정상 동작
+- 첫 Tab이 index=1부터 시작됨 (index=0에 초기 포커스 없음) — 개선 가능
+
+**다음 세션:**
+- 첫 진입 시 index=0 자동 포커스 (현재는 첫 Tab이 index=1로 감)
+- Shift+Tab 실제 체감 테스트
+- 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
 
 ---

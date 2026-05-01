@@ -1,16 +1,22 @@
 #!/bin/bash
 set -e
 
+PROJECT="$(dirname "$0")/Orbit/Orbit.xcodeproj"
 DERIVED="$HOME/Library/Developer/Xcode/DerivedData/Orbit-gygwlfgqhvsoeugggtivyxdvcqtp/Build/Products/Debug/Orbit.app"
 DEST="/Applications/Orbit.app"
 LOG="$HOME/Library/Logs/Orbit.log"
 
-# 빌드 결과물 확인
-if [ ! -d "$DERIVED" ]; then
-    echo "❌ 빌드 결과물 없음: $DERIVED"
-    echo "   Xcode에서 먼저 빌드(Cmd+B)하세요."
+# 빌드
+echo "🔨 빌드 중..."
+BUILD_LOG=$(mktemp)
+if ! xcodebuild -project "$PROJECT" -scheme Orbit -configuration Debug build > "$BUILD_LOG" 2>&1; then
+    echo "❌ 빌드 실패"
+    grep "error:" "$BUILD_LOG" | head -10
+    rm "$BUILD_LOG"
     exit 1
 fi
+rm "$BUILD_LOG"
+echo "✅ 빌드 완료"
 
 # 앱 종료
 if pgrep -x Orbit > /dev/null 2>&1; then

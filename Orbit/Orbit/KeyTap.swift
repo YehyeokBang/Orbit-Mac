@@ -38,7 +38,6 @@ final class KeyTap {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         startMCWatcher()
-        startSpaceWatcher()
         Logger.log("[KeyTap] 시작됨")
     }
 
@@ -63,8 +62,11 @@ final class KeyTap {
 
                 if Set(oldIDs) != Set(newIDs) {
                     // 데스크탑 전환 — 윈도우 목록 자체가 바뀜
-                    self.resetState()
-                    Logger.log("[KeyTap] 윈도우 목록 변경 → 리셋")
+                    if self.currentIndex >= 0 {
+                        self.resetState()
+                        Logger.log("[KeyTap] 윈도우 목록 변경 → 리셋")
+                    }
+                    self.thumbnails = updated
                 } else if self.currentIndex >= 0 {
                     // 같은 창들인데 좌표가 바뀜 — Spaces 바 레이아웃 변경 등
                     let currentWindowID = self.thumbnails[self.currentIndex].windowID
@@ -82,19 +84,6 @@ final class KeyTap {
         }
         timer.resume()
         mcWatcher = timer
-    }
-
-    // Ctrl+Arrow 스페이스 전환 시 index 리셋 — MC가 활성 상태를 유지한 채 스페이스만 바뀌는 경우
-    private func startSpaceWatcher() {
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.resetState()
-            Logger.log("[KeyTap] 스페이스 전환 감지 → index 리셋")
-        }
     }
 
     private func resetState() {
@@ -137,7 +126,11 @@ final class KeyTap {
     }
 
     private func handleTab(reverse: Bool) {
-        thumbnails = ThumbnailLocator.fetchThumbnails()
+        let newThumbnails = ThumbnailLocator.fetchThumbnails()
+        if Set(thumbnails.map(\.windowID)) != Set(newThumbnails.map(\.windowID)) {
+            currentIndex = -1
+        }
+        thumbnails = newThumbnails
         guard !thumbnails.isEmpty else {
             Logger.log("[KeyTap] thumbnail 없음 — Tab 무시")
             return

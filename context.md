@@ -163,3 +163,29 @@
 4. 동작 안 하면 mcWatcher 타이머 실행 여부 확인 (tick 로그 추가해서 디버그)
 
 ---
+
+## 2026-05-02 — 세션 6 (mcWatcher 동작 검증)
+
+**목표:**
+- MC 내 데스크탑 전환 시 `[KeyTap] 윈도우 목록 변경 → 리셋` 로그 확인
+- Spaces 바 레이아웃 변경 시 오버레이 위치 업데이트 확인
+
+**세션 시작 시 코드 상태:**
+- `KeyTap.swift`: mcWatcher(0.2s 폴링) + activeSpaceDidChangeNotification 모두 작성 완료
+- `SelectionOverlay.swift`: updateFrame() 추가, 자체 pollTimer도 있음
+- 세션 5에서 코드 작성했으나 권한 문제로 실제 동작 미검증
+
+**한 일:**
+- 데스크탑 전환 시 index 오류 수정 (`handleTab`: windowID 세트 달라지면 currentIndex 리셋)
+- 데스크탑 전환 중 overlay 깜빡임 수정 (mcWatcher: currentIndex=-1이면 thumbnails만 갱신, resetState 생략)
+- `activeSpaceDidChangeNotification` 제거: 실제 로그에서 전환 1회에 3번 연속 발화하여 overlay 숨김 버그 발생. mcWatcher가 이미 windowID 변화로 모든 케이스를 커버하므로 완전 제거
+
+**발견:**
+- `activeSpaceDidChangeNotification`은 한 번 전환에 최대 3회 발화 (타이밍 최대 ~1.5초 간격). mcWatcher 0.2s 폴링이 더 신뢰할 수 있음
+- Spaces 바 레이아웃 변경(버벅임) → 폴링 특성상 200ms 이내 반영. PoC 단계에서는 허용 범위
+
+**다음 세션:**
+- Shift+Tab 체감 테스트
+- 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
+
+

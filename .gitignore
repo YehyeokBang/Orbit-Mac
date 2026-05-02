@@ -21,6 +21,9 @@ build/
 .AppleDouble
 .LSOverride
 
+# Raw video source
+*.mov
+
 # Probe binaries
 probe/window_dump
 probe/window_dump_delayed

@@ -117,13 +117,21 @@ final class KeyTap {
         guard mcActive else { return Unmanaged.passUnretained(event) }
         let flags = event.flags
 
-        // Tab = 48, Enter = 36, ESC = 53
+        // Tab = 48, Enter = 36, 좌화살표 = 123, 우화살표 = 124
         switch keyCode {
         case 48: // Tab
             let isShift = flags.contains(.maskShift)
             Logger.log("[KeyTap] \(isShift ? "Shift+Tab" : "Tab") 가로챔")
             handleTab(reverse: isShift)
-            return nil  // 이벤트 삼킴
+            return nil
+
+        case 123, 124: // 좌/우 화살표 (Control+화살표는 Spaces 이동이므로 통과)
+            guard !flags.contains(.maskControl) else {
+                return Unmanaged.passUnretained(event)
+            }
+            Logger.log("[KeyTap] \(keyCode == 123 ? "←" : "→") 가로챔")
+            handleTab(reverse: keyCode == 123)
+            return nil
 
         case 36: // Enter
             Logger.log("[KeyTap] Enter 가로챔")

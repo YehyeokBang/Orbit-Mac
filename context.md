@@ -304,3 +304,20 @@
 **다음 세션 / 후속 작업:**
 - 핵심 사용성 완성 단계 — dogfood 후 방향 결정
 - 후보: 로그인 시 자동 실행, README/배포, 아이콘 교체, ESC 동작 개선
+
+---
+
+## 2026-05-02 17:45 — 세션 11 (LaunchAgent + Cmd+Delete 앱 종료)
+
+**한 일:**
+- 로그인 시 자동 실행 — `~/Library/LaunchAgents/dev.bang.Orbit.plist` 등록, `scripts/`에 원본 보관
+- Command+Delete로 포커스된 앱 종료 (NSWorkspace.runningApplications + terminate())
+- 단순 Delete → Command+Delete로 변경 (실수 방지)
+
+**결정한 것:**
+- MC 위에서 NSAlert 불가 → 오버레이 텍스트 변경 방식도 있었으나 Command+Delete 조합으로 확인 과정 대체
+- Delete 단독은 실수 가능성 있어 Command 조합 필수로 결정
+
+**다음 세션 / 후속 작업:**
+- dogfood 중 불편한 것 수집
+- 사용성 개선 후보: 오버레이 앱 이름/인덱스 표시, ↑↓ 화살표 행 이동, ESC 포커스 해제

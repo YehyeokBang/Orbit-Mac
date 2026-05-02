@@ -24,3 +24,4 @@ build/
 # Probe binaries
 probe/window_dump
 probe/window_dump_delayed
+.gstack/

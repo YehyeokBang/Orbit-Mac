@@ -232,3 +232,62 @@
 **주의: 현재 SelectionOverlay.swift는 디버그 빌드 상태. 문제 해결 후 원복 필요:**
 - OverlayView.draw(): 빨간 채움 → 원래 파란 테두리로
 - show(): `screens:` 로그 제거
+
+---
+
+## 2026-05-02 — 세션 8 (z-order 버그 해결 + 로그 레벨 분리)
+
+**한 일:**
+- 세션 7의 z-order 버그(데스크탑 전환 후 오버레이 안 보임) 해결
+- show()마다 NSWindow 새로 생성하도록 변경 — 망가진 window 인스턴스 재사용 회피
+- `isReleasedWhenClosed = false` 설정, `close()` 호출 제거 — close()가 CGEventTap을 망가뜨리는 문제 해결
+- 진단 보조: keyDown code/mcActive 로그, isVisible/isOnActiveSpace 로그, screens 로그 추가
+- CGEventTap에 tapDisabledByTimeout/UserInput 마스크 추가 + 자동 재활성화 로직
+- Logger에 debug 레벨 분리 추가 — `ORBIT_DEBUG=1` 환경변수일 때만 출력
+- 고빈도/진단 로그(ThumbnailLocator, keyDown, screens, visible/onActiveSpace)를 `Logger.debug()`로 변경
+
+**핵심 발견:**
+- 데스크탑 전환 중 Tab 누르면 ThumbnailLocator가 mid-animation에 부분적 결과(예: 1개만) 잡고 그 좌표로 NSWindow 생성됨 → 이 window가 macOS window server 안에서 corrupt 상태가 되어 같은 인스턴스를 재사용하는 한 영원히 안 보임. 같은 NSWindow에서 setFrame/orderFront/alphaValue 무엇을 해도 복구 불가.
+- `NSWindow.close()`는 default `isReleasedWhenClosed=true`라서 ARC와 이중 release 가능. 또한 borderless window를 close()하면 같은 프로세스의 CGEventTap이 keyDown 수신을 멈춰버림 (정확한 메커니즘 미규명, 재현으로 확인). `isReleasedWhenClosed=false`로 두고 orderOut + nil 할당만 하면 ARC가 안전하게 처리, event tap도 살아있음.
+- CGEventTap이 `tapDisabledByTimeout`/`UserInput`로 disable되는 케이스는 이번 디버그 중 한 번도 발생 안 함 — 위 close() 문제가 진짜 원인이었음.
+
+**검증 결과 (모든 케이스 통과):**
+- 케이스 A: 현 데스크탑에서 Tab → 빨간 박스 ✓
+- 케이스 B: MC 안에서 옆 데스크탑 전환 후 Tab → 빨간 박스 ✓
+- 케이스 C: B 후 MC 다시 켜고 Tab → 빨간 박스 ✓
+- A→ESC→A 반복 사이클도 정상 (이전엔 첫 사이클 후 keyDown 자체가 안 들어왔음)
+
+**시각 정책 결정:**
+- 빨간 채움 + 6px 테두리가 오히려 가시성 좋다는 사용자 피드백. 디버그 빌드 시각 그대로 유지.
+- 차후 작업: Orbit 앱 켜면 설정창 띄워서 오버레이 색/스타일 사용자가 고를 수 있게 디벨롭
+
+**앱 아이콘 작업:**
+- 사용자가 생성한 `icon.png`(1254×1254 RGB, 모서리 검정)을 프로젝트 아이콘으로 적용
+- Python PIL로 디자인 bbox 추출 후 정사각형 캔버스에 재배치 → 22.37% 반지름 squircle 마스크 적용 → 투명 모서리
+- `sips`로 16/32/64/128/256/512/1024 사이즈별 PNG 생성, `Assets.xcassets/AppIcon.appiconset/Contents.json`에 슬롯 매핑
+- 잔여 외곽 어둠은 원본 디자인의 의도된 림 효과로 판단 — 마스킹으론 제거 불가, 다음 버전은 풀블리드 캔버스로 재생성 예정 (프롬프트 v2 작성 완료, 사용자가 새 이미지 생성 중)
+
+**다음 세션 / 후속 작업:**
+- 사용자가 새 풀블리드 아이콘 생성해 오면 재적용 (현재 파이프라인 그대로 사용 가능)
+- 일주일 dogfood
+- SPEC.md 섹션 1 최종 평가
+- README 작성, 배포 등
+
+---
+
+## 2026-05-02 17:24 — 세션 9 (메뉴바 아이콘 + 오버레이 색상 선택)
+
+**한 일:**
+- 메뉴바 아이콘을 `"⊙"` 텍스트 → SF Symbols `sparkle`로 변경
+- `OverlaySettings` 클래스 추가 — 7가지 프리셋 색상(빨강/파랑/초록/노랑/보라/검정/흰색), `UserDefaults` 저장
+- `OverlayView`에 색상 주입 — 채움/테두리 모두 선택 색상으로 렌더링
+- AppDelegate 메뉴에 "오버레이 색상 ▶" 서브메뉴 추가 — 색상 원 아이콘 + 체크마크 표시
+
+**결정한 것:**
+- NSColorPanel 팔레트 대신 프리셋 7색으로 결정 — PoC 단계에서 메뉴바 앱 UX에 적합
+- SF Symbols는 App Store/로컬 빌드 모두 사용 가능, 다크/라이트 모드 자동 대응
+
+**다음 세션 / 후속 작업:**
+- 사용자가 새 풀블리드 아이콘 생성해 오면 재적용
+- 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
+- README 작성, 배포 등

@@ -46,7 +46,7 @@ enum ThumbnailLocator {
             return $0.frame.minY < $1.frame.minY
         }
 
-        Logger.log("[ThumbnailLocator] \(sorted.count)개 thumbnail: \(sorted.map { "\($0.ownerName)(\(Int($0.frame.minX)),\(Int($0.frame.minY)))" })")
+        Logger.debug("[ThumbnailLocator] \(sorted.count)개 thumbnail: \(sorted.map { "\($0.ownerName)(\(Int($0.frame.minX)),\(Int($0.frame.minY)))" })")
         return sorted
     }
 }

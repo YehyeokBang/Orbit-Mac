@@ -17,6 +17,8 @@ final class KeyTap {
         }
 
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+            | CGEventMask(1 << CGEventType.tapDisabledByTimeout.rawValue)
+            | CGEventMask(1 << CGEventType.tapDisabledByUserInput.rawValue)
         tap = CGEvent.tapCreate(
             tap: .cghidEventTap,
             place: .headInsertEventTap,
@@ -100,10 +102,19 @@ final class KeyTap {
     }
 
     private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            Logger.log("[KeyTap] tap disabled (\(type.rawValue)) → 재활성화")
+            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return Unmanaged.passUnretained(event)
+        }
         guard type == .keyDown else { return Unmanaged.passUnretained(event) }
-        guard MissionControlDetector.isActive() else { return Unmanaged.passUnretained(event) }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+        let mcActive = MissionControlDetector.isActive()
+        if keyCode == 48 || keyCode == 36 {
+            Logger.debug("[KeyTap] keyDown code=\(keyCode) mcActive=\(mcActive)")
+        }
+        guard mcActive else { return Unmanaged.passUnretained(event) }
         let flags = event.flags
 
         // Tab = 48, Enter = 36, ESC = 53

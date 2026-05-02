@@ -1,7 +1,7 @@
 # Orbit-mac PoC Spec
 
 **Status:** ACTIVE — Approach A 구현 완료, dogfood 진행 중
-**Last updated:** 2026-05-02
+**Last updated:** 2026-05-02 (세션 9)
 **Author:** yhbang@zimssa.com
 
 ---

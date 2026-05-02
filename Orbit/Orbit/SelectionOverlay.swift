@@ -1,5 +1,29 @@
 import Cocoa
 
+final class OverlaySettings {
+    static let shared = OverlaySettings()
+    private let key = "overlayColor"
+
+    let presets: [(name: String, color: NSColor)] = [
+        ("빨강", .red),
+        ("파랑", .systemBlue),
+        ("초록", .systemGreen),
+        ("노랑", .systemYellow),
+        ("보라", .systemPurple),
+        ("검정", .black),
+        ("흰색", .white),
+    ]
+
+    var selectedName: String {
+        get { UserDefaults.standard.string(forKey: key) ?? "빨강" }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
+    }
+
+    var color: NSColor {
+        presets.first { $0.name == selectedName }?.color ?? .red
+    }
+}
+
 // Tab 이동 시 선택된 thumbnail 위에 테두리 오버레이를 그림.
 // CGWindowList 좌표(좌상단 origin) → AppKit 좌표(좌하단 origin) 변환 필요.
 final class SelectionOverlay {
@@ -9,32 +33,28 @@ final class SelectionOverlay {
     func show(frame cgFrame: CGRect) {
         let appKitFrame = toAppKit(cgFrame)
 
-        if window == nil {
-            let win = NSWindow(
-                contentRect: appKitFrame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false
-            )
-            win.isOpaque = false
-            win.backgroundColor = .clear
-            // Mission Control 위에 올라오려면 최대한 높은 레벨 필요
-            win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
-            win.ignoresMouseEvents = true
-            win.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
-            win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size))
-            window = win
-        } else {
-            // orderOut 후 재표시 시 level이 리셋될 수 있으므로 매번 재지정
-            window?.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
-            window?.contentView?.setFrameSize(appKitFrame.size)
-            window?.contentView?.needsDisplay = true
-            window?.setFrame(appKitFrame, display: true)
-        }
+        // 매번 창 새로 만듦 — MC 내 space 전환 중에 만들어진 window가 망가지는 케이스 회피
+        window?.orderOut(nil)
+
+        let win = NSWindow(
+            contentRect: appKitFrame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        win.isReleasedWhenClosed = false
+        win.isOpaque = false
+        win.backgroundColor = .clear
+        win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
+        win.ignoresMouseEvents = true
+        win.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
+        win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size), color: OverlaySettings.shared.color)
+        window = win
 
         window?.orderFrontRegardless()
+        Logger.debug("[SelectionOverlay] visible=\(window?.isVisible ?? false) onActiveSpace=\(window?.isOnActiveSpace ?? false)")
         let screensInfo = NSScreen.screens.map { "(\(Int($0.frame.width))×\(Int($0.frame.height)) at \(Int($0.frame.origin.x)),\(Int($0.frame.origin.y)))" }.joined(separator: " | ")
-        Logger.log("[SelectionOverlay] screens: \(screensInfo)")
+        Logger.debug("[SelectionOverlay] screens: \(screensInfo)")
         Logger.log("[SelectionOverlay] show at appKit=(\(Int(appKitFrame.minX)),\(Int(appKitFrame.minY))) \(Int(appKitFrame.width))×\(Int(appKitFrame.height))")
         startPolling()
     }
@@ -42,6 +62,7 @@ final class SelectionOverlay {
     func hide() {
         stopPolling()
         window?.orderOut(nil)
+        window = nil
         Logger.log("[SelectionOverlay] hide")
     }
 
@@ -87,13 +108,20 @@ final class SelectionOverlay {
 }
 
 private class OverlayView: NSView {
+    private let color: NSColor
+
+    init(frame: NSRect, color: NSColor) {
+        self.color = color
+        super.init(frame: frame)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
     override func draw(_ dirtyRect: NSRect) {
-        // DEBUG: 빨간 반투명 채움 + 두꺼운 테두리 (좌표/z-order 확인용)
-        NSColor.red.withAlphaComponent(0.3).setFill()
+        color.withAlphaComponent(0.3).setFill()
         bounds.fill()
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 3), xRadius: 6, yRadius: 6)
         path.lineWidth = 6
-        NSColor.red.withAlphaComponent(0.9).setStroke()
+        color.withAlphaComponent(0.9).setStroke()
         path.stroke()
     }
 }

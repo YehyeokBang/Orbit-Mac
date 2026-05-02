@@ -139,6 +139,18 @@ final class KeyTap {
             CursorWarper.clickAtCurrentPosition()
             return nil
 
+        case 51: // Command+Delete — 포커스된 앱 종료
+            guard flags.contains(.maskCommand),
+                  currentIndex >= 0 && currentIndex < thumbnails.count else {
+                return Unmanaged.passUnretained(event)
+            }
+            let target = thumbnails[currentIndex]
+            Logger.log("[KeyTap] Delete → \(target.ownerName) 종료")
+            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == target.ownerName }) {
+                app.terminate()
+            }
+            return nil
+
         default:
             return Unmanaged.passUnretained(event)
         }

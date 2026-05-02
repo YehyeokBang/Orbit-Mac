@@ -4,7 +4,7 @@
 
 macOS Mission Control은 열린 창을 한눈에 볼 수 있지만, 원하는 창으로 이동하려면 항상 마우스를 써야 합니다. Orbit을 사용하면 Mission Control 위에서 키보드만으로 창을 탐색하고 전환할 수 있습니다.
 
-https://github.com/YehyeokBang/Orbit-Mac/raw/main/orbit-demo.mp4
+![demo](orbit-demo.mp4)
 
 ---
 

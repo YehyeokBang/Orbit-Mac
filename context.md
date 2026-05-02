@@ -291,3 +291,16 @@
 - 사용자가 새 풀블리드 아이콘 생성해 오면 재적용
 - 일주일 dogfood 후 SPEC.md 섹션 1 최종 평가
 - README 작성, 배포 등
+
+---
+
+## 2026-05-02 17:35 — 세션 10 (화살표키 네비게이션)
+
+**한 일:**
+- MC 안에서 ←/→ 화살표키로 thumbnail 이동 추가
+- Control+화살표는 Spaces 이동 그대로 통과 (flags.maskControl 분기)
+- 기존 handleTab(reverse:) 재사용 — index 설계 변경 없음
+
+**다음 세션 / 후속 작업:**
+- 핵심 사용성 완성 단계 — dogfood 후 방향 결정
+- 후보: 로그인 시 자동 실행, README/배포, 아이콘 교체, ESC 동작 개선

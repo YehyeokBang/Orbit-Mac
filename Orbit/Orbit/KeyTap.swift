@@ -179,6 +179,6 @@ final class KeyTap {
         let target = thumbnails[currentIndex]
         Logger.log("[KeyTap] → index=\(currentIndex) \(target.ownerName) center=(\(Int(target.center.x)), \(Int(target.center.y)))")
         CursorWarper.warp(to: target.center)
-        overlay.show(frame: target.frame)
+        overlay.show(frame: target.frame, appName: target.ownerName)
     }
 }

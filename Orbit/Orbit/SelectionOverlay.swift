@@ -30,7 +30,7 @@ final class SelectionOverlay {
     private var window: NSWindow?
     private var pollTimer: DispatchSourceTimer?
 
-    func show(frame cgFrame: CGRect) {
+    func show(frame cgFrame: CGRect, appName: String = "") {
         let appKitFrame = toAppKit(cgFrame)
 
         // 매번 창 새로 만듦 — MC 내 space 전환 중에 만들어진 window가 망가지는 케이스 회피
@@ -48,7 +48,7 @@ final class SelectionOverlay {
         win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
         win.ignoresMouseEvents = true
         win.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
-        win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size), color: OverlaySettings.shared.color)
+        win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size), color: OverlaySettings.shared.color, appName: appName)
         window = win
 
         window?.orderFrontRegardless()
@@ -109,19 +109,50 @@ final class SelectionOverlay {
 
 private class OverlayView: NSView {
     private let color: NSColor
+    private let appName: String
 
-    init(frame: NSRect, color: NSColor) {
+    init(frame: NSRect, color: NSColor, appName: String) {
         self.color = color
+        self.appName = appName
         super.init(frame: frame)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(_ dirtyRect: NSRect) {
+        // 배경 채움 + 테두리
         color.withAlphaComponent(0.3).setFill()
         bounds.fill()
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 3), xRadius: 6, yRadius: 6)
         path.lineWidth = 6
         color.withAlphaComponent(0.9).setStroke()
         path.stroke()
+
+        guard !appName.isEmpty else { return }
+
+        // 앱 이름 pill — 하단 중앙
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.8)
+        shadow.shadowOffset = .zero
+        shadow.shadowBlurRadius = 3
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
+            .foregroundColor: NSColor.white,
+            .shadow: shadow,
+        ]
+        let textSize = (appName as NSString).size(withAttributes: attrs)
+        let pillPadding: CGFloat = 10
+        let pillH: CGFloat = textSize.height + 8
+        let pillW = textSize.width + pillPadding * 2
+        let pillX = (bounds.width - pillW) / 2
+        let pillY: CGFloat = 10
+
+        let pillRect = CGRect(x: pillX, y: pillY, width: pillW, height: pillH)
+        let pillPath = NSBezierPath(roundedRect: pillRect, xRadius: pillH / 2, yRadius: pillH / 2)
+        NSColor.black.withAlphaComponent(0.6).setFill()
+        pillPath.fill()
+
+        let textX = pillX + pillPadding
+        let textY = pillY + (pillH - textSize.height) / 2
+        (appName as NSString).draw(at: CGPoint(x: textX, y: textY), withAttributes: attrs)
     }
 }

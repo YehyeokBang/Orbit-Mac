@@ -307,6 +307,26 @@
 
 ---
 
+## 2026-05-02 19:08 — 세션 12 (2D 방향 네비게이션 + 크래시 수정)
+
+**한 일:**
+- ThumbnailNavigator.swift 추가 — 네비게이션 알고리즘 전담 분리
+  - Tab/ShiftTab: 행(row) 우선 읽기 순서 순환 (Y 그룹화 threshold=60px → 행 안에서 좌→우)
+  - ←→↑↓: 방향 반평면 필터 + `축거리 + 교차거리×2.0` 최소값 선택, 가장자리 정지
+- KeyTap: handleTab → handleNavigation 통합, ↑↓ 키코드(125/126) 추가
+- 크래시 수정: currentIndex=-1 상태에서 화살표 키 누를 시 Index out of range → navigateDirectional에서 -1 반환하던 것을 0으로 수정
+
+**발견:**
+- Control+↑↓ (Mission Control/Exposé)는 maskControl 체크로 정상 통과 확인
+- 화살표 진입 시 앱 크래시 — thumbnails[-1] 접근이 원인. Tab과 달리 화살표는 currentIndex=-1 진입 경로가 있었음
+
+**다음 세션 / 후속 작업:**
+- dogfood 중 불편한 것 수집
+- ThumbnailNavigator rowThreshold(60), crossAxisPenalty(2.0) 튜닝 필요시 조정
+- 후보: README 작성, 아이콘 교체, ESC 포커스 해제
+
+---
+
 ## 2026-05-02 17:45 — 세션 11 (LaunchAgent + Cmd+Delete 앱 종료)
 
 **한 일:**

@@ -117,20 +117,27 @@ final class KeyTap {
         guard mcActive else { return Unmanaged.passUnretained(event) }
         let flags = event.flags
 
-        // Tab = 48, Enter = 36, 좌화살표 = 123, 우화살표 = 124
+        // Tab = 48, Enter = 36, ← = 123, → = 124, ↓ = 125, ↑ = 126
         switch keyCode {
         case 48: // Tab
             let isShift = flags.contains(.maskShift)
             Logger.log("[KeyTap] \(isShift ? "Shift+Tab" : "Tab") 가로챔")
-            handleTab(reverse: isShift)
+            handleNavigation(direction: isShift ? .shiftTab : .tab)
             return nil
 
-        case 123, 124: // 좌/우 화살표 (Control+화살표는 Spaces 이동이므로 통과)
+        case 123, 124, 125, 126: // 화살표 (Control+화살표는 Spaces/Exposé이므로 통과)
             guard !flags.contains(.maskControl) else {
                 return Unmanaged.passUnretained(event)
             }
-            Logger.log("[KeyTap] \(keyCode == 123 ? "←" : "→") 가로챔")
-            handleTab(reverse: keyCode == 123)
+            let dir: NavigationDirection
+            switch keyCode {
+            case 123: dir = .left
+            case 124: dir = .right
+            case 125: dir = .down
+            default:  dir = .up
+            }
+            Logger.log("[KeyTap] 화살표 \(dir) 가로챔")
+            handleNavigation(direction: dir)
             return nil
 
         case 36: // Enter
@@ -156,22 +163,18 @@ final class KeyTap {
         }
     }
 
-    private func handleTab(reverse: Bool) {
+    private func handleNavigation(direction: NavigationDirection) {
         let newThumbnails = ThumbnailLocator.fetchThumbnails()
         if Set(thumbnails.map(\.windowID)) != Set(newThumbnails.map(\.windowID)) {
             currentIndex = -1
         }
         thumbnails = newThumbnails
         guard !thumbnails.isEmpty else {
-            Logger.log("[KeyTap] thumbnail 없음 — Tab 무시")
+            Logger.log("[KeyTap] thumbnail 없음 — 네비게이션 무시")
             return
         }
 
-        if reverse {
-            currentIndex = (currentIndex - 1 + thumbnails.count) % thumbnails.count
-        } else {
-            currentIndex = (currentIndex + 1) % thumbnails.count
-        }
+        currentIndex = ThumbnailNavigator.navigate(from: currentIndex, thumbnails: thumbnails, direction: direction)
 
         let target = thumbnails[currentIndex]
         Logger.log("[KeyTap] → index=\(currentIndex) \(target.ownerName) center=(\(Int(target.center.x)), \(Int(target.center.y)))")

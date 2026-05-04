@@ -13,33 +13,38 @@ final class NumberOverlaySettings {
 }
 
 // MC 활성 시 모든 thumbnail 위에 탭 순서 번호 배지를 표시하는 풀스크린 투명 오버레이.
-// 창 하나(NSWindow) + NSView.draw()로 모든 배지를 한 번에 렌더링.
+// 멀티 모니터: 스크린마다 별도 NSWindow를 생성하고, 해당 스크린에 속한 배지만 렌더링.
+// 번호는 전체 reading order 기준으로 연속 (스크린 간 분리 없음).
 final class NumberOverlay {
     static let shared = NumberOverlay()
-    private var window: NSWindow?
+    private var windows: [(NSWindow, NSScreen)] = []
 
-    // 윈도우 세트가 바뀔 때(MC 최초 활성 포함) 창을 새로 만든다.
     func show(thumbnails: [WindowThumbnail], order: [Int]) {
         guard NumberOverlaySettings.shared.isEnabled else { return }
-        window?.orderOut(nil)
-        window = makeWindow(thumbnails: thumbnails, order: order)
-        window?.orderFrontRegardless()
+        hide()
+        let primaryH = NSScreen.screens.first?.frame.height ?? 0
+        for screen in NSScreen.screens {
+            let win = makeWindow(screen: screen, primaryH: primaryH, thumbnails: thumbnails, order: order)
+            windows.append((win, screen))
+            win.orderFrontRegardless()
+        }
     }
 
-    // 레이아웃만 변경됐을 때 창 재생성 없이 뷰만 갱신. 숨긴 상태(window nil)면 아무것도 안 함.
+    // 레이아웃만 변경됐을 때 창 재생성 없이 뷰만 갱신. 숨긴 상태면 아무것도 안 함.
     func update(thumbnails: [WindowThumbnail], order: [Int]) {
-        guard NumberOverlaySettings.shared.isEnabled, window != nil else { return }
-        guard let view = window?.contentView as? NumberOverlayView else { return }
-        view.update(thumbnails: thumbnails, order: order)
+        guard NumberOverlaySettings.shared.isEnabled, !windows.isEmpty else { return }
+        let primaryH = NSScreen.screens.first?.frame.height ?? 0
+        for (win, screen) in windows {
+            (win.contentView as? NumberOverlayView)?.update(thumbnails: thumbnails, order: order, screen: screen, primaryH: primaryH)
+        }
     }
 
     func hide() {
-        window?.orderOut(nil)
-        window = nil
+        windows.forEach { $0.0.orderOut(nil) }
+        windows = []
     }
 
-    private func makeWindow(thumbnails: [WindowThumbnail], order: [Int]) -> NSWindow? {
-        guard let screen = NSScreen.screens.first else { return nil }
+    private func makeWindow(screen: NSScreen, primaryH: CGFloat, thumbnails: [WindowThumbnail], order: [Int]) -> NSWindow {
         let win = NSWindow(
             contentRect: screen.frame,
             styleMask: .borderless,
@@ -55,36 +60,63 @@ final class NumberOverlay {
         win.contentView = NumberOverlayView(
             frame: NSRect(origin: .zero, size: screen.frame.size),
             thumbnails: thumbnails,
-            order: order
+            order: order,
+            screen: screen,
+            primaryH: primaryH
         )
         return win
     }
 }
 
-// 모든 thumbnail 배지를 한 NSView 안에서 그린다.
+// 한 스크린의 배지를 렌더링. 자신의 스크린에 속한 thumbnail만 그린다.
 private final class NumberOverlayView: NSView {
     private var badges: [BadgeInfo] = []
     private let badgeSize: CGFloat = 34
+    private let screen: NSScreen
+    private let primaryH: CGFloat
 
-    init(frame: NSRect, thumbnails: [WindowThumbnail], order: [Int]) {
+    init(frame: NSRect, thumbnails: [WindowThumbnail], order: [Int], screen: NSScreen, primaryH: CGFloat) {
+        self.screen = screen
+        self.primaryH = primaryH
         super.init(frame: frame)
         badges = makeBadges(thumbnails: thumbnails, order: order)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(thumbnails: [WindowThumbnail], order: [Int]) {
+    func update(thumbnails: [WindowThumbnail], order: [Int], screen: NSScreen, primaryH: CGFloat) {
         badges = makeBadges(thumbnails: thumbnails, order: order)
         needsDisplay = true
     }
 
-    // CG 좌표 → NSView(AppKit) 좌표 변환 후 배지 정보 생성
+    // CG 좌표 → 이 스크린의 NSView 좌표로 변환.
+    // 이 스크린에 속하지 않는 thumbnail은 제외(compactMap).
+    // 번호는 전역 reading order 번호 그대로 유지.
+    //
+    // 좌표계:
+    //   CG:     origin = 주 모니터 좌상단, Y↓
+    //   AppKit: origin = 주 모니터 좌하단, Y↑
+    //   View:   origin = 이 스크린의 좌하단, Y↑ (= AppKit - screen.frame.origin)
+    //
+    // CG rect(cx,cy,w,h) → View:
+    //   viewX = cx - screen.frame.minX
+    //   viewY = (primaryH - cy - h) - screen.frame.minY
     private func makeBadges(thumbnails: [WindowThumbnail], order: [Int]) -> [BadgeInfo] {
-        let screenH = bounds.height
-        return order.prefix(9).enumerated().map { n, idx in
+        return order.prefix(9).enumerated().compactMap { n, idx in
             let cg = thumbnails[idx].frame
-            let appKitFrame = CGRect(x: cg.minX, y: screenH - cg.minY - cg.height,
-                                    width: cg.width, height: cg.height)
-            return BadgeInfo(number: n + 1, frame: appKitFrame)
+            let globalAppKit = CGRect(
+                x: cg.minX,
+                y: primaryH - cg.minY - cg.height,
+                width: cg.width,
+                height: cg.height
+            )
+            guard screen.frame.intersects(globalAppKit) else { return nil }
+            let viewFrame = CGRect(
+                x: globalAppKit.minX - screen.frame.minX,
+                y: globalAppKit.minY - screen.frame.minY,
+                width: cg.width,
+                height: cg.height
+            )
+            return BadgeInfo(number: n + 1, frame: viewFrame)
         }
     }
 

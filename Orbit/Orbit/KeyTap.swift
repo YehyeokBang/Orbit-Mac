@@ -10,10 +10,11 @@ final class KeyTap {
     private var mcWasActive: Bool = false
     private var mcWatcher: DispatchSourceTimer?
 
-    // 번호 오버레이 지연 표시용 토큰.
-    // thumbnail 세트가 바뀔 때마다 토큰을 증가시켜 이전 예약을 무효화.
-    // 마지막 변화 이후 0.65s 뒤에 딱 한 번 표시.
-    private var showToken = 0
+    // 프레임 안정화 감지 — 연속 stableRequired회 폴링에서 좌표가 동일하면 애니메이션 완료로 판단.
+    // 시간 기반(asyncAfter)이 아닌 실제 상태 기반이므로 렉/성능 변동에 무관하게 정확.
+    private var lastFrameKey = ""
+    private var stableCount = 0
+    private let stableRequired = 2
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -45,14 +46,14 @@ final class KeyTap {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        // 데스크탑 전환 즉시 감지: 번호 잔상 즉시 제거.
-        // 이 notification은 1회 전환에 최대 3번 발화 → hide()만 호출, 재예약 없음.
-        // 재표시는 mcWatcher가 thumbnail 변화를 감지했을 때 scheduleNumberOverlayShow()로 처리.
+        // 데스크탑 전환 즉시 감지: 번호 잔상 즉시 제거 + 안정화 카운트 리셋.
+        // 이 notification은 1회 전환에 최대 3번 발화 → hide만, 재표시는 mcWatcher가 담당.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
             guard let self, self.mcWasActive else { return }
+            self.stableCount = 0
             NumberOverlay.shared.hide()
         }
 
@@ -60,12 +61,12 @@ final class KeyTap {
         Logger.log("[KeyTap] 시작됨")
     }
 
-    // MC 상태 + thumbnail 변화를 주기적으로 감시.
-    // 번호 표시 정책: thumbnail windowID 세트가 바뀔 때마다 0.65s 지연 표시 예약.
-    // 애니메이션 중 여러 번 바뀌어도 마지막 변화 후 한 번만 표시.
+    // MC 상태 + thumbnail 프레임 안정화를 주기적으로 감시.
+    // 번호 표시 정책: 연속 stableRequired회 폴링에서 좌표가 동일하면 애니메이션 완료로 판단 → 즉시 표시.
+    // 좌표가 바뀌는 동안(애니메이션 중, Spaces 바 hover 중)은 숨김 유지.
     private func startMCWatcher() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 0.2, repeating: 0.2)
+        timer.schedule(deadline: .now() + 0.1, repeating: 0.1)
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             let isActive = MissionControlDetector.isActive()
@@ -79,26 +80,56 @@ final class KeyTap {
                 let newIDs = Set(updated.map { $0.windowID })
 
                 if oldIDs != newIDs {
-                    // MC 최초 활성 or 데스크탑 전환 — thumbnail 세트 변경
+                    // ID 세트 변경 (MC 첫 활성화 or 데스크탑 전환)
                     if self.currentIndex >= 0 {
                         self.currentIndex = -1
                         self.overlay.hide()
                     }
                     self.thumbnails = updated
                     NumberOverlay.shared.hide()
-                    self.scheduleNumberOverlayShow()
-                } else if self.currentIndex >= 0 && !updated.isEmpty {
-                    // 같은 창들인데 좌표만 변경 (Spaces 바 레이아웃 등)
-                    let currentWindowID = self.thumbnails[self.currentIndex].windowID
-                    if let newIndex = updated.firstIndex(where: { $0.windowID == currentWindowID }) {
-                        self.thumbnails = updated
-                        self.currentIndex = newIndex
-                        self.overlay.updateFrame(updated[newIndex].frame)
-                    }
-                    let order = ThumbnailNavigator.readingOrder(updated)
-                    NumberOverlay.shared.update(thumbnails: updated, order: order)
+                    self.stableCount = 0
+                    self.lastFrameKey = self.frameKey(updated)
                 } else if !updated.isEmpty {
-                    self.thumbnails = updated
+                    let newKey = self.frameKey(updated)
+                    if newKey == self.lastFrameKey {
+                        // 좌표 안정 중
+                        if self.stableCount < self.stableRequired {
+                            self.stableCount += 1
+                            if self.stableCount == self.stableRequired {
+                                // 안정화 완료 → 번호 즉시 표시
+                                self.thumbnails = updated
+                                let order = ThumbnailNavigator.readingOrder(updated)
+                                NumberOverlay.shared.show(thumbnails: updated, order: order)
+                                Logger.log("[KeyTap] 프레임 안정화 감지 → 번호 표시")
+                            }
+                        } else {
+                            // 이미 안정화 상태 — 번호·선택 오버레이 위치만 갱신
+                            if self.currentIndex >= 0 {
+                                let wid = self.thumbnails[self.currentIndex].windowID
+                                if let idx = updated.firstIndex(where: { $0.windowID == wid }) {
+                                    self.thumbnails = updated
+                                    self.currentIndex = idx
+                                    self.overlay.updateFrame(updated[idx].frame)
+                                }
+                            }
+                            let order = ThumbnailNavigator.readingOrder(updated)
+                            NumberOverlay.shared.update(thumbnails: updated, order: order)
+                        }
+                    } else {
+                        // 좌표 변경 중 (애니메이션 진행 / Spaces 바 hover)
+                        self.stableCount = 0
+                        self.lastFrameKey = newKey
+                        NumberOverlay.shared.hide()
+                        // 선택 오버레이는 따라가도록 유지
+                        if self.currentIndex >= 0 {
+                            let wid = self.thumbnails[self.currentIndex].windowID
+                            if let idx = updated.firstIndex(where: { $0.windowID == wid }) {
+                                self.thumbnails = updated
+                                self.currentIndex = idx
+                                self.overlay.updateFrame(updated[idx].frame)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -108,25 +139,18 @@ final class KeyTap {
         mcWatcher = timer
     }
 
-    // 0.65s 후 번호 오버레이 표시 예약. 토큰으로 이전 예약 자동 무효화.
-    private func scheduleNumberOverlayShow() {
-        showToken += 1
-        let token = showToken
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self, self.showToken == token else { return }
-            guard MissionControlDetector.isActive() else { return }
-            let fresh = ThumbnailLocator.fetchThumbnails()
-            guard !fresh.isEmpty else { return }
-            self.thumbnails = fresh
-            let order = ThumbnailNavigator.readingOrder(fresh)
-            NumberOverlay.shared.show(thumbnails: fresh, order: order)
-        }
+    // thumbnail 좌표를 정수 단위로 키 생성. windowID 순 정렬로 배열 순서 무관하게 동일 키 보장.
+    private func frameKey(_ thumbnails: [WindowThumbnail]) -> String {
+        thumbnails.sorted { $0.windowID < $1.windowID }.map { t in
+            "\(Int(t.frame.minX)),\(Int(t.frame.minY)),\(Int(t.frame.width)),\(Int(t.frame.height))"
+        }.joined(separator: "|")
     }
 
     private func resetState() {
-        showToken += 1  // 대기 중인 show 예약 취소
         currentIndex = -1
         thumbnails = []
+        stableCount = 0
+        lastFrameKey = ""
         overlay.hide()
         NumberOverlay.shared.hide()
     }

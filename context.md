@@ -347,3 +347,40 @@
 **다음 세션 / 후속 작업:**
 - dogfood 중 불편한 것 수집
 - 사용성 개선 후보: 오버레이 앱 이름/인덱스 표시, ↑↓ 화살표 행 이동, ESC 포커스 해제
+
+---
+
+## 2026-05-05 — 세션 13 (번호 오버레이 안정화 + 멀티 모니터 지원)
+
+**한 일:**
+- 번호 오버레이 표시 전략: 시간 기반(asyncAfter) → 프레임 안정화 감지로 전면 교체
+- 멀티 모니터 번호 오버레이 지원 추가
+- 버그 수정 2건 (안정화 감지 오동작)
+
+**핵심 변경 — 프레임 안정화 감지:**
+- 기존: thumbnail ID 변화 → asyncAfter(0.35s) → 무조건 표시 → 렉 시 애니메이션 중간에 표시 → 깜빡임
+- 신규: 0.1s 폴링, 연속 2회 thumbnail 좌표 동일 → 애니메이션 완료 판단 → 즉시 표시
+- 시간이 아닌 실제 상태 기반이므로 렉/성능 변동에 무관하게 정확
+- CGWindowList는 스냅샷 기반이므로 애니메이션 중 중간 좌표를 반환 → 폴링 비교로 완료 감지 가능
+- showToken + scheduleNumberOverlayShow() 완전 제거, lastFrameKey + stableCount로 대체
+- activeSpaceDidChangeNotification: 즉시 hide + stableCount=0 (lastFrameKey는 건드리지 않음)
+
+**멀티 모니터 지원:**
+- NumberOverlay: `window: NSWindow?` → `windows: [(NSWindow, NSScreen)]`
+- 스크린마다 별도 NSWindow 생성, 해당 스크린에 속한 thumbnail 배지만 렌더링
+- 좌표 변환: CG → 전역 AppKit → 스크린 뷰 로컬 좌표 (screen.frame.origin 빼기)
+- 번호는 전역 reading order 기준 연속 (스크린 간 분리 없음)
+
+**버그 수정:**
+1. `activeSpaceDidChangeNotification`에서 `lastFrameKey = ""` 리셋 → 다음 폴링에서 `"" != 실제키` → 강제 "변화 중" 판정 → stableCount 영구 리셋 루프
+   - 수정: stableCount만 리셋, lastFrameKey는 mcWatcher가 자연스럽게 관리
+2. `frameKey()`가 배열 순서 의존 → fetchThumbnails()가 다른 순서 반환 시 같은 좌표여도 다른 키
+   - 수정: windowID 오름차순 정렬 후 키 생성
+
+**발견:**
+- 창을 다른 데스크탑으로 MC 내에서 이동할 때 `activeSpaceDidChangeNotification`이 발화됨 (공식 문서에 없는 동작)
+- 10개 창에서 1개 이동 → 9개 됐는데 번호가 안 뜨는 버그의 근본 원인이 위 두 버그 조합이었음
+
+**다음 세션 / 후속 작업:**
+- dogfood 계속
+- v0.2 후보: 키 바인딩 커스터마이징 UI

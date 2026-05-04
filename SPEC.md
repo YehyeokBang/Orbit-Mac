@@ -212,6 +212,8 @@ Mission Control 진입 시 첫 포커스를 어디에 둘 것인가:
 ✓ 오버레이 앱 이름 pill 표시
 ✓ v0.1.0 GitHub Releases 배포
 ✓ README + 권한 안내 문서화
+✓ 번호 오버레이 표시: 시간 기반 → 프레임 안정화 감지 (애니메이션 완료 시점에 정확히 표시)
+✓ 멀티 모니터 번호 오버레이 (스크린마다 별도 NSWindow, 전역 번호 순서 유지)
 
 □ 일주일 dogfood 후 섹션 1 최종 평가
 □ ThumbnailNavigator 파라미터 튜닝 (rowThreshold, crossAxisPenalty)

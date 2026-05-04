@@ -112,7 +112,7 @@ final class KeyTap {
     private func scheduleNumberOverlayShow() {
         showToken += 1
         let token = showToken
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self, self.showToken == token else { return }
             guard MissionControlDetector.isActive() else { return }
             let fresh = ThumbnailLocator.fetchThumbnails()

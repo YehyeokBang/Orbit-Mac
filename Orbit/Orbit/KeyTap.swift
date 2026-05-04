@@ -45,15 +45,15 @@ final class KeyTap {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        // 데스크탑 전환 즉시 감지: 폴링(0.2s) 대기 없이 번호 잔상 제거
+        // 데스크탑 전환 즉시 감지: 폴링(0.2s) 대기 없이 번호 잔상 제거.
+        // 이 notification은 1회 전환에 최대 3번 발화하므로 hide()만 호출.
+        // idsSince는 건드리지 않음 — mcWatcher가 thumbnail 변화 시 자연스럽게 재설정.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
             guard let self, self.mcWasActive else { return }
             NumberOverlay.shared.hide()
-            // 안정화 재대기: 센티널(빈 세트)로 표시 → 이후 폴링에서 newIDs로 전환 후 재확인
-            self.idsSince = Set<CGWindowID>()
         }
 
         startMCWatcher()
@@ -154,8 +154,10 @@ final class KeyTap {
         // 숫자 1~9 = 18,19,20,21,23,22,26,28,25
         switch keyCode {
         case 18, 19, 20, 21, 22, 23, 25, 26, 28: // 1~9
-            // 수식어 키 조합(Cmd+Shift+5 캡처 등)은 통과
-            guard flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty else {
+            // 수식어 키 조합(Cmd+Shift+4 캡처 등)은 통과 — contains로 비트 명시 체크
+            if flags.contains(.maskCommand) || flags.contains(.maskShift) ||
+               flags.contains(.maskAlternate) || flags.contains(.maskControl) {
+                Logger.debug("[KeyTap] 숫자 keyCode=\(keyCode) 수식어 감지 flags=\(flags.rawValue) → 통과")
                 return Unmanaged.passUnretained(event)
             }
             let map: [Int: Int] = [18:1, 19:2, 20:3, 21:4, 22:6, 23:5, 25:9, 26:7, 28:8]

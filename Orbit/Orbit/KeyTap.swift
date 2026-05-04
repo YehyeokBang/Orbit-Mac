@@ -11,9 +11,12 @@ final class KeyTap {
     private var mcWatcher: DispatchSourceTimer?
 
     // 번호 오버레이 안정화 추적: 직전 폴링에서 본 windowID 세트.
-    // 연속 2번 동일한 세트 → 스프레드 완료로 판단 → 번호 표시.
+    // 연속 2번 동일한 세트 + debounce 경과 → 번호 표시.
     // nil = 이미 안정 상태(표시 중 or 숨김)
     private var idsSince: Set<CGWindowID>? = nil
+
+    // 마지막 데스크탑 전환 시각 — debounce 기준점
+    private var lastSpaceChangeDate: Date = .distantPast
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -54,6 +57,7 @@ final class KeyTap {
         ) { [weak self] _ in
             guard let self, self.mcWasActive else { return }
             NumberOverlay.shared.hide()
+            self.lastSpaceChangeDate = Date()
         }
 
         startMCWatcher()
@@ -90,12 +94,14 @@ final class KeyTap {
                 } else if let pending = self.idsSince {
                     // 이전 폴링과 동일한 세트 — 안정화 확인
                     if !updated.isEmpty && pending == newIDs {
-                        // 연속 2번 동일 → 스프레드 완료, 번호 표시
-                        let order = ThumbnailNavigator.readingOrder(updated)
-                        NumberOverlay.shared.show(thumbnails: updated, order: order)
-                        self.idsSince = nil
+                        // 연속 2번 동일 + 전환 animation debounce(0.5s) 경과 → 번호 표시
+                        if Date().timeIntervalSince(self.lastSpaceChangeDate) > 0.5 {
+                            let order = ThumbnailNavigator.readingOrder(updated)
+                            NumberOverlay.shared.show(thumbnails: updated, order: order)
+                            self.idsSince = nil
+                        }
+                        // debounce 중이면 idsSince 유지 → 다음 폴링에서 재확인
                     } else if !updated.isEmpty {
-                        // 센티널이었거나 아직 전환 중 → 현재 세트를 pending으로 기록
                         self.idsSince = newIDs
                     }
                 } else if self.currentIndex >= 0 && !updated.isEmpty {

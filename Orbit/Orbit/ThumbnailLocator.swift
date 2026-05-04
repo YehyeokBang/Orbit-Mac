@@ -40,10 +40,10 @@ enum ThumbnailLocator {
             thumbnails.append(WindowThumbnail(windowID: windowID, ownerName: owner, frame: frame))
         }
 
-        // 왼쪽→오른쪽 우선, 같은 열이면 위→아래
+        // 위→아래 우선, 같은 행이면 왼쪽→오른쪽 (Z 읽기 순서)
         let sorted = thumbnails.sorted {
-            if abs($0.frame.minX - $1.frame.minX) > 50 { return $0.frame.minX < $1.frame.minX }
-            return $0.frame.minY < $1.frame.minY
+            if abs($0.frame.minY - $1.frame.minY) > 50 { return $0.frame.minY < $1.frame.minY }
+            return $0.frame.minX < $1.frame.minX
         }
 
         Logger.debug("[ThumbnailLocator] \(sorted.count)개 thumbnail: \(sorted.map { "\($0.ownerName)(\(Int($0.frame.minX)),\(Int($0.frame.minY)))" })")

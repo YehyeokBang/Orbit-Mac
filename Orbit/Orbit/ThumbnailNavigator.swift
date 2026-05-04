@@ -8,8 +8,6 @@ enum NavigationDirection {
 // Tab/ShiftTab: 행(row) 우선 읽기 순서로 순환.
 // 화살표: 해당 방향 반평면에서 축-거리 + 교차축-거리×패널티로 최근접 선택.
 enum ThumbnailNavigator {
-    // 같은 행으로 묶는 Y 거리 기준 (px)
-    private static let rowThreshold: CGFloat = 60
     // 방향 이동 시 교차축 거리 가중치
     private static let crossAxisPenalty: CGFloat = 2.0
 
@@ -37,6 +35,11 @@ enum ThumbnailNavigator {
             : (pos + 1) % ordered.count
         return ordered[next]
     }
+
+    // 같은 행으로 묶는 center.y 기준 임계값 (px)
+    // overlap 방식은 세로로 긴 창이 체인을 만들어 모든 창이 한 행에 묶이는 문제 있음
+    // center.y 기준: 같은 행 내 분산 < 150px, 행 간 거리 > 300px 이 일반적이라 분리 가능
+    private static let rowThreshold: CGFloat = 150
 
     // thumbnails의 원본 인덱스를 행-우선 읽기 순서로 반환
     private static func readingOrder(_ thumbnails: [WindowThumbnail]) -> [Int] {
@@ -83,10 +86,11 @@ enum ThumbnailNavigator {
             let axis: CGFloat
             let cross: CGFloat
             switch direction {
-            case .right:  guard dx > 0 else { continue }; axis = dx;  cross = abs(dy)
-            case .left:   guard dx < 0 else { continue }; axis = -dx; cross = abs(dy)
-            case .down:   guard dy > 0 else { continue }; axis = dy;  cross = abs(dx)
-            case .up:     guard dy < 0 else { continue }; axis = -dy; cross = abs(dx)
+            // 45° cone: 주 방향 성분이 교차 방향보다 커야 후보로 인정
+            case .right:  guard dx > 0 && dx >= abs(dy) else { continue }; axis = dx;  cross = abs(dy)
+            case .left:   guard dx < 0 && abs(dx) >= abs(dy) else { continue }; axis = -dx; cross = abs(dy)
+            case .down:   guard dy > 0 && dy >= abs(dx) else { continue }; axis = dy;  cross = abs(dx)
+            case .up:     guard dy < 0 && abs(dy) >= abs(dx) else { continue }; axis = -dy; cross = abs(dx)
             case .tab, .shiftTab: continue
             }
 

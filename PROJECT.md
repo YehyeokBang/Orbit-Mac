@@ -6,7 +6,7 @@
 
 ## 프로젝트 한 줄 요약
 
-macOS Mission Control 위 키보드 네비게이션. PoC 단계, 본인 dogfood용. App Store 안 올림.
+macOS Mission Control 위 키보드 네비게이션. v0.1.0 릴리스 완료, GitHub Releases 배포 중. App Store 안 올림.
 
 상세는 `SPEC.md`. 작업 일지는 `context.md`.
 
@@ -35,7 +35,7 @@ macOS Mission Control 위 키보드 네비게이션. PoC 단계, 본인 dogfood�
 
 ```
 □ Xcode 버전: 16.2
-□ macOS 타겟: 15.6.1 (Sequoia)
+□ macOS 최소 타겟: 15.2 (Sequoia)
 □ 빌드 명령: Xcode에서 Cmd+B (또는 Cmd+R)
 □ 프로젝트 경로: Orbit/Orbit/Orbit.xcodeproj
 ```

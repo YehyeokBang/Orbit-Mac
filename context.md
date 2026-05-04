@@ -320,10 +320,16 @@
 - Control+↑↓ (Mission Control/Exposé)는 maskControl 체크로 정상 통과 확인
 - 화살표 진입 시 앱 크래시 — thumbnails[-1] 접근이 원인. Tab과 달리 화살표는 currentIndex=-1 진입 경로가 있었음
 
+**이후 세션 (12 연장)에서 추가로 한 일:**
+- 오버레이 앱 이름 pill 표시 (SelectionOverlay.swift — appName 파라미터, 하단 반투명 pill, 15pt 세미볼드 + 그림자)
+- README 작성 (기능, 설치, 권한 안내, 데모 gif)
+- v0.1.0 GitHub Releases 배포 (Orbit.zip 2.3MB 첨부)
+- SPEC.md, PROJECT.md, context.md 최신화
+
 **다음 세션 / 후속 작업:**
 - dogfood 중 불편한 것 수집
 - ThumbnailNavigator rowThreshold(60), crossAxisPenalty(2.0) 튜닝 필요시 조정
-- 후보: README 작성, 아이콘 교체, ESC 포커스 해제
+- 후보: 새 아이콘 (풀블리드), 키 바인딩 커스터마이징 UI
 
 ---
 

@@ -1,16 +1,16 @@
 # Orbit-mac PoC Spec
 
-**Status:** ACTIVE — Approach A 구현 완료, dogfood 진행 중
-**Last updated:** 2026-05-02 (세션 9)
+**Status:** ACTIVE — v0.1.0 릴리스 완료, dogfood 진행 중
+**Last updated:** 2026-05-02 (세션 12)
 **Author:** yhbang@zimssa.com
 
 ---
 
 ## 0. 한 줄 요약
 
-Mission Control 활성 상태에서 Tab/Shift+Tab/Enter로 창을 키보드만으로 선택하는 macOS 메뉴바 앱. PoC는 로컬 빌드 + Accessibility 권한만으로 dogfood 가능한 수준까지.
+Mission Control 활성 상태에서 Tab/Shift+Tab/화살표키/Enter로 창을 키보드만으로 선택하는 macOS 메뉴바 앱. v0.1.0 릴리스 완료, GitHub Releases에서 배포 중.
 
-App Store 배포 없음 (개발자 계정 없음). 코드사이닝/notarization 불필요.
+App Store 배포 없음 (개발자 계정 없음). 코드사이닝/notarization 불필요. Gatekeeper 우회(우클릭 → 열기)로 설치 가능.
 
 ---
 
@@ -139,15 +139,18 @@ Orbit-mac/
 
 ---
 
-## 5. 키 바인딩 (PoC 고정)
+## 5. 키 바인딩
 
-다음 세션 PoC에선 하드코딩. 커스터마이징은 v1.1.
+하드코딩. 커스터마이징은 향후 과제.
 
 | 키 | 동작 | Mission Control 활성 시에만 |
 |----|------|---------------------------|
-| Tab | 다음 thumbnail | ✓ |
+| Tab | 다음 thumbnail (읽기 순서) | ✓ |
 | Shift+Tab | 이전 thumbnail | ✓ |
+| ← → ↑ ↓ | 방향 기반 2D 이동 (가장 가까운 창 선택) | ✓ |
+| Control+화살표 | 통과 (Spaces 이동 / Exposé 시스템 단축키) | — |
 | Enter | 선택된 창으로 이동 | ✓ |
+| Cmd+Delete | 선택된 앱 종료 | ✓ |
 | ESC | Mission Control 닫기 (이벤트 통과) | ✓ |
 | 그 외 모든 키 | 가로채지 않음 (시스템에 통과) | — |
 
@@ -186,21 +189,32 @@ Mission Control 진입 시 첫 포커스를 어디에 둘 것인가:
 
 ---
 
-## 9. 현재 남은 작업
+## 9. 완료된 작업 / 남은 작업
 
 ```
 ✓ Xcode 설치 확인
-✓ macOS 버전 확인 (15.6.1 Sequoia)
+✓ macOS 버전 확인 (Sequoia, deployment target 15.2)
 ✓ 가정 검증 (섹션 3)
 ✓ Approach A 결정 및 스캐폴딩 생성
 ✓ Tab/Enter 동작 확인
-✓ Accessibility 권한 고정 (/Applications 운용 방식)
+✓ Accessibility 권한 고정 (/Applications 운용 방식, Personal Team 서명)
+✓ 첫 Tab 시 index=0 자동 포커스 (currentIndex 초기값 -1)
+✓ 선택 thumbnail 오버레이 (SelectionOverlay.swift)
+✓ MC 내 데스크탑 전환 시 오버레이/index 리셋 (세션 8 해결)
+✓ Spaces 바 레이아웃 변경 시 오버레이 위치 업데이트
+✓ Shift+Tab 구현 및 동작 확인
+✓ 오버레이 색상 선택 (7가지 프리셋, UserDefaults 저장)
+✓ 메뉴바 SF Symbols 아이콘
+✓ 로그인 시 자동 실행 (LaunchAgent)
+✓ 좌/우 화살표키 네비게이션
+✓ Cmd+Delete 포커스된 앱 종료
+✓ 2D 방향 네비게이션 (↑↓←→) + ThumbnailNavigator 분리
+✓ 오버레이 앱 이름 pill 표시
+✓ v0.1.0 GitHub Releases 배포
+✓ README + 권한 안내 문서화
 
-✓ 첫 Tab 시 index=0 자동 포커스 (currentIndex 초기값 -1로 수정)
-✓ 선택 thumbnail 파란 테두리 오버레이 (SelectionOverlay.swift)
-△ MC 내 데스크탑 전환 시 오버레이/index 리셋 (index 리셋 ✓, 오버레이 표시 ✗ — 세션 7 미해결)
-✓ Spaces 바 레이아웃 변경 시 오버레이 위치 업데이트 (세션 6 검증 완료)
-□ Shift+Tab 체감 테스트 (구현은 됨)
 □ 일주일 dogfood 후 섹션 1 최종 평가
-□ PoC 이후 방향 결정 (dmg 패키징, 배포 등)
+□ ThumbnailNavigator 파라미터 튜닝 (rowThreshold, crossAxisPenalty)
+□ 새 아이콘 (풀블리드 캔버스 버전)
+□ 키 바인딩 커스터마이징 UI (v0.2 후보)
 ```

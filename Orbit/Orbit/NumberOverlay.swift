@@ -26,13 +26,10 @@ final class NumberOverlay {
         window?.orderFrontRegardless()
     }
 
-    // 레이아웃만 변경됐을 때 창 재생성 없이 뷰만 갱신.
+    // 레이아웃만 변경됐을 때 창 재생성 없이 뷰만 갱신. 숨긴 상태(window nil)면 아무것도 안 함.
     func update(thumbnails: [WindowThumbnail], order: [Int]) {
-        guard NumberOverlaySettings.shared.isEnabled else { return }
-        guard let view = window?.contentView as? NumberOverlayView else {
-            show(thumbnails: thumbnails, order: order)
-            return
-        }
+        guard NumberOverlaySettings.shared.isEnabled, window != nil else { return }
+        guard let view = window?.contentView as? NumberOverlayView else { return }
         view.update(thumbnails: thumbnails, order: order)
     }
 

@@ -10,6 +10,11 @@ final class KeyTap {
     private var mcWasActive: Bool = false
     private var mcWatcher: DispatchSourceTimer?
 
+    // 번호 오버레이 안정화 추적: 직전 폴링에서 본 windowID 세트.
+    // 연속 2번 동일한 세트 → 스프레드 완료로 판단 → 번호 표시.
+    // nil = 이미 안정 상태(표시 중 or 숨김)
+    private var idsSince: Set<CGWindowID>? = nil
+
     func start() {
         guard AXIsProcessTrusted() else {
             Logger.log("[KeyTap] Accessibility 권한 없음 — 시스템 설정 > 손쉬운 사용에서 Orbit 허용 후 재시작")
@@ -39,14 +44,25 @@ final class KeyTap {
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+
+        // 데스크탑 전환 즉시 감지: 폴링(0.2s) 대기 없이 번호 잔상 제거
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.mcWasActive else { return }
+            NumberOverlay.shared.hide()
+            // 안정화 재대기: 센티널(빈 세트)로 표시 → 이후 폴링에서 newIDs로 전환 후 재확인
+            self.idsSince = Set<CGWindowID>()
+        }
+
         startMCWatcher()
         Logger.log("[KeyTap] 시작됨")
     }
 
-    // MC 상태 + thumbnail 변화를 주기적으로 감시
-    // - MC 종료 시 → resetState()
-    // - MC 활성 중 windowID 세트 변경 → 데스크탑 전환이므로 resetState()
-    // - MC 활성 중 좌표만 변경 → 레이아웃 변경(Spaces 바 펼침 등)이므로 오버레이 위치만 업데이트
+    // MC 상태 + thumbnail 변화를 주기적으로 감시.
+    // 번호 표시 정책: windowID 세트가 연속 2번 동일해야 안정 → 표시.
+    // (스프레드 애니메이션 중 좌표가 확정되지 않은 상태에서 번호가 매겨지는 문제 방지)
     private func startMCWatcher() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 0.2, repeating: 0.2)
@@ -63,21 +79,27 @@ final class KeyTap {
                 let newIDs = Set(updated.map { $0.windowID })
 
                 if oldIDs != newIDs {
-                    // 데스크탑 전환 or MC 최초 활성 — 즉시 이전 상태 정리
+                    // 윈도우 세트 변경 — 애니메이션 중이거나 데스크탑 전환
                     if self.currentIndex >= 0 {
                         self.currentIndex = -1
                         self.overlay.hide()
                     }
                     self.thumbnails = updated
-                    if updated.isEmpty {
-                        // 전환 애니메이션 중 — 잔상 즉시 제거하고 다음 폴링에서 새 배지 표시
-                        NumberOverlay.shared.hide()
-                    } else {
+                    NumberOverlay.shared.hide()
+                    self.idsSince = newIDs  // 안정화 대기 시작
+                } else if let pending = self.idsSince {
+                    // 이전 폴링과 동일한 세트 — 안정화 확인
+                    if !updated.isEmpty && pending == newIDs {
+                        // 연속 2번 동일 → 스프레드 완료, 번호 표시
                         let order = ThumbnailNavigator.readingOrder(updated)
                         NumberOverlay.shared.show(thumbnails: updated, order: order)
+                        self.idsSince = nil
+                    } else if !updated.isEmpty {
+                        // 센티널이었거나 아직 전환 중 → 현재 세트를 pending으로 기록
+                        self.idsSince = newIDs
                     }
-                } else if !updated.isEmpty && self.currentIndex >= 0 {
-                    // 같은 창들인데 좌표가 바뀜 — Spaces 바 레이아웃 변경 등
+                } else if self.currentIndex >= 0 && !updated.isEmpty {
+                    // 안정 상태에서 좌표만 변경 (Spaces 바 레이아웃 등)
                     let currentWindowID = self.thumbnails[self.currentIndex].windowID
                     if let newIndex = updated.firstIndex(where: { $0.windowID == currentWindowID }) {
                         self.thumbnails = updated
@@ -100,6 +122,7 @@ final class KeyTap {
     private func resetState() {
         currentIndex = -1
         thumbnails = []
+        idsSince = nil
         overlay.hide()
         NumberOverlay.shared.hide()
     }
@@ -131,6 +154,10 @@ final class KeyTap {
         // 숫자 1~9 = 18,19,20,21,23,22,26,28,25
         switch keyCode {
         case 18, 19, 20, 21, 22, 23, 25, 26, 28: // 1~9
+            // 수식어 키 조합(Cmd+Shift+5 캡처 등)은 통과
+            guard flags.intersection([.maskCommand, .maskShift, .maskAlternate, .maskControl]).isEmpty else {
+                return Unmanaged.passUnretained(event)
+            }
             let map: [Int: Int] = [18:1, 19:2, 20:3, 21:4, 22:6, 23:5, 25:9, 26:7, 28:8]
             guard let n = map[Int(keyCode)] else { return Unmanaged.passUnretained(event) }
             Logger.log("[KeyTap] 숫자 \(n) 가로챔")

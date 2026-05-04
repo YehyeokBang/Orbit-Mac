@@ -22,6 +22,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let menu = NSMenu()
         menu.addItem(colorSubmenuItem())
+        menu.addItem(numberOverlayToggleItem())
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "로그 보기", action: #selector(openLog), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -52,6 +53,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSBezierPath(ovalIn: NSRect(origin: .zero, size: size)).fill()
         image.unlockFocus()
         return image
+    }
+
+    private func numberOverlayToggleItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "번호 표시", action: #selector(toggleNumberOverlay(_:)), keyEquivalent: "")
+        item.target = self
+        item.state = NumberOverlaySettings.shared.isEnabled ? .on : .off
+        return item
+    }
+
+    @objc private func toggleNumberOverlay(_ sender: NSMenuItem) {
+        NumberOverlaySettings.shared.isEnabled.toggle()
+        sender.state = NumberOverlaySettings.shared.isEnabled ? .on : .off
+        if !NumberOverlaySettings.shared.isEnabled { NumberOverlay.shared.hide() }
     }
 
     @objc private func selectColor(_ sender: NSMenuItem) {

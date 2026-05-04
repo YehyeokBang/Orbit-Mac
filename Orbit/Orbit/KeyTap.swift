@@ -57,18 +57,23 @@ final class KeyTap {
             if self.mcWasActive && !isActive {
                 self.resetState()
                 Logger.log("[KeyTap] MC 종료 감지 → 리셋")
-            } else if isActive && !self.thumbnails.isEmpty {
+            } else if isActive {
                 let updated = ThumbnailLocator.fetchThumbnails()
-                let oldIDs = self.thumbnails.map { $0.windowID }
-                let newIDs = updated.map { $0.windowID }
+                guard !updated.isEmpty else { return }
 
-                if Set(oldIDs) != Set(newIDs) {
-                    // 데스크탑 전환 — 윈도우 목록 자체가 바뀜
+                let oldIDs = Set(self.thumbnails.map { $0.windowID })
+                let newIDs = Set(updated.map { $0.windowID })
+
+                if oldIDs != newIDs {
+                    // MC 최초 활성 포함, 데스크탑 전환 — 윈도우 목록 변경
                     if self.currentIndex >= 0 {
-                        self.resetState()
+                        self.currentIndex = -1
+                        self.overlay.hide()
                         Logger.log("[KeyTap] 윈도우 목록 변경 → 리셋")
                     }
                     self.thumbnails = updated
+                    let order = ThumbnailNavigator.readingOrder(updated)
+                    NumberOverlay.shared.show(thumbnails: updated, order: order)
                 } else if self.currentIndex >= 0 {
                     // 같은 창들인데 좌표가 바뀜 — Spaces 바 레이아웃 변경 등
                     let currentWindowID = self.thumbnails[self.currentIndex].windowID
@@ -77,6 +82,8 @@ final class KeyTap {
                         self.currentIndex = newIndex
                         self.overlay.updateFrame(updated[newIndex].frame)
                     }
+                    let order = ThumbnailNavigator.readingOrder(updated)
+                    NumberOverlay.shared.update(thumbnails: updated, order: order)
                 } else {
                     self.thumbnails = updated
                 }
@@ -92,6 +99,7 @@ final class KeyTap {
         currentIndex = -1
         thumbnails = []
         overlay.hide()
+        NumberOverlay.shared.hide()
     }
 
     func stop() {
@@ -118,7 +126,15 @@ final class KeyTap {
         let flags = event.flags
 
         // Tab = 48, Enter = 36, ← = 123, → = 124, ↓ = 125, ↑ = 126
+        // 숫자 1~9 = 18,19,20,21,23,22,26,28,25
         switch keyCode {
+        case 18, 19, 20, 21, 22, 23, 25, 26, 28: // 1~9
+            let map: [Int: Int] = [18:1, 19:2, 20:3, 21:4, 22:6, 23:5, 25:9, 26:7, 28:8]
+            guard let n = map[Int(keyCode)] else { return Unmanaged.passUnretained(event) }
+            Logger.log("[KeyTap] 숫자 \(n) 가로챔")
+            handleDirectJump(to: n)
+            return nil
+
         case 48: // Tab
             let isShift = flags.contains(.maskShift)
             Logger.log("[KeyTap] \(isShift ? "Shift+Tab" : "Tab") 가로챔")
@@ -161,6 +177,25 @@ final class KeyTap {
         default:
             return Unmanaged.passUnretained(event)
         }
+    }
+
+    private func handleDirectJump(to n: Int) {
+        let newThumbnails = ThumbnailLocator.fetchThumbnails()
+        if Set(thumbnails.map(\.windowID)) != Set(newThumbnails.map(\.windowID)) { currentIndex = -1 }
+        thumbnails = newThumbnails
+        guard !thumbnails.isEmpty else { return }
+
+        let order = ThumbnailNavigator.readingOrder(thumbnails)
+        let pos = n - 1
+        guard pos < order.count else {
+            Logger.log("[KeyTap] 숫자 \(n) → thumbnail \(order.count)개뿐 — 무시")
+            return
+        }
+        currentIndex = order[pos]
+        let target = thumbnails[currentIndex]
+        Logger.log("[KeyTap] 숫자 \(n) → index=\(currentIndex) \(target.ownerName)")
+        CursorWarper.warp(to: target.center)
+        overlay.show(frame: target.frame, appName: target.ownerName)
     }
 
     private func handleNavigation(direction: NavigationDirection) {

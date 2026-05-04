@@ -42,7 +42,7 @@ enum ThumbnailNavigator {
     private static let rowThreshold: CGFloat = 150
 
     // thumbnails의 원본 인덱스를 행-우선 읽기 순서로 반환
-    private static func readingOrder(_ thumbnails: [WindowThumbnail]) -> [Int] {
+    static func readingOrder(_ thumbnails: [WindowThumbnail]) -> [Int] {
         let byY = (0..<thumbnails.count).sorted { thumbnails[$0].center.y < thumbnails[$1].center.y }
 
         var rows: [[Int]] = []

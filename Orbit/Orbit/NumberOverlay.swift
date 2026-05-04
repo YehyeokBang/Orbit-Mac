@@ -67,7 +67,7 @@ final class NumberOverlay {
 // 모든 thumbnail 배지를 한 NSView 안에서 그린다.
 private final class NumberOverlayView: NSView {
     private var badges: [BadgeInfo] = []
-    private let badgeSize: CGFloat = 28
+    private let badgeSize: CGFloat = 34
 
     init(frame: NSRect, thumbnails: [WindowThumbnail], order: [Int]) {
         super.init(frame: frame)
@@ -96,29 +96,29 @@ private final class NumberOverlayView: NSView {
     }
 
     private func drawBadge(_ badge: BadgeInfo) {
-        // 배지는 thumbnail 좌상단 코너에 배치
         let bx = badge.frame.minX + 10
         let by = badge.frame.maxY - badgeSize - 10
         let rect = CGRect(x: bx, y: by, width: badgeSize, height: badgeSize)
 
-        // 원형 배경 — 반투명 검정, 흰 테두리
-        let circle = NSBezierPath(ovalIn: rect)
-        NSColor.black.withAlphaComponent(0.65).setFill()
-        circle.fill()
-        circle.lineWidth = 1.5
-        NSColor.white.withAlphaComponent(0.4).setStroke()
-        circle.stroke()
-
-        // 숫자 텍스트
-        let text = "\(badge.number)" as NSString
+        // 그림자 — 어두운/밝은 썸네일 모두에서 배지가 떠 보이게
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.6)
-        shadow.shadowOffset = .zero
-        shadow.shadowBlurRadius = 2
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+        shadow.shadowOffset = CGSize(width: 0, height: -1)
+        shadow.shadowBlurRadius = 4
+        NSGraphicsContext.current?.saveGraphicsState()
+        shadow.set()
+
+        // 흰 배경 원 — 어떤 썸네일 색상에서도 최대 대비
+        let circle = NSBezierPath(ovalIn: rect)
+        NSColor.white.withAlphaComponent(0.95).setFill()
+        circle.fill()
+        NSGraphicsContext.current?.restoreGraphicsState()
+
+        // 숫자 텍스트 — 검정
+        let text = "\(badge.number)" as NSString
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .bold),
-            .foregroundColor: NSColor.white,
-            .shadow: shadow,
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .bold),
+            .foregroundColor: NSColor.black,
         ]
         let textSize = text.size(withAttributes: attrs)
         text.draw(at: CGPoint(x: bx + (badgeSize - textSize.width) / 2,

@@ -10,13 +10,10 @@ final class KeyTap {
     private var mcWasActive: Bool = false
     private var mcWatcher: DispatchSourceTimer?
 
-    // 번호 오버레이 안정화 추적: 직전 폴링에서 본 windowID 세트.
-    // 연속 2번 동일한 세트 + debounce 경과 → 번호 표시.
-    // nil = 이미 안정 상태(표시 중 or 숨김)
-    private var idsSince: Set<CGWindowID>? = nil
-
-    // 마지막 데스크탑 전환 시각 — debounce 기준점
-    private var lastSpaceChangeDate: Date = .distantPast
+    // 번호 오버레이 지연 표시용 토큰.
+    // thumbnail 세트가 바뀔 때마다 토큰을 증가시켜 이전 예약을 무효화.
+    // 마지막 변화 이후 0.65s 뒤에 딱 한 번 표시.
+    private var showToken = 0
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -48,16 +45,15 @@ final class KeyTap {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
-        // 데스크탑 전환 즉시 감지: 폴링(0.2s) 대기 없이 번호 잔상 제거.
-        // 이 notification은 1회 전환에 최대 3번 발화하므로 hide()만 호출.
-        // idsSince는 건드리지 않음 — mcWatcher가 thumbnail 변화 시 자연스럽게 재설정.
+        // 데스크탑 전환 즉시 감지: 번호 잔상 즉시 제거.
+        // 이 notification은 1회 전환에 최대 3번 발화 → hide()만 호출, 재예약 없음.
+        // 재표시는 mcWatcher가 thumbnail 변화를 감지했을 때 scheduleNumberOverlayShow()로 처리.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
             guard let self, self.mcWasActive else { return }
             NumberOverlay.shared.hide()
-            self.lastSpaceChangeDate = Date()
         }
 
         startMCWatcher()
@@ -65,8 +61,8 @@ final class KeyTap {
     }
 
     // MC 상태 + thumbnail 변화를 주기적으로 감시.
-    // 번호 표시 정책: windowID 세트가 연속 2번 동일해야 안정 → 표시.
-    // (스프레드 애니메이션 중 좌표가 확정되지 않은 상태에서 번호가 매겨지는 문제 방지)
+    // 번호 표시 정책: thumbnail windowID 세트가 바뀔 때마다 0.65s 지연 표시 예약.
+    // 애니메이션 중 여러 번 바뀌어도 마지막 변화 후 한 번만 표시.
     private func startMCWatcher() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 0.2, repeating: 0.2)
@@ -83,29 +79,16 @@ final class KeyTap {
                 let newIDs = Set(updated.map { $0.windowID })
 
                 if oldIDs != newIDs {
-                    // 윈도우 세트 변경 — 애니메이션 중이거나 데스크탑 전환
+                    // MC 최초 활성 or 데스크탑 전환 — thumbnail 세트 변경
                     if self.currentIndex >= 0 {
                         self.currentIndex = -1
                         self.overlay.hide()
                     }
                     self.thumbnails = updated
                     NumberOverlay.shared.hide()
-                    self.idsSince = newIDs  // 안정화 대기 시작
-                } else if let pending = self.idsSince {
-                    // 이전 폴링과 동일한 세트 — 안정화 확인
-                    if !updated.isEmpty && pending == newIDs {
-                        // 연속 2번 동일 + 전환 animation debounce(0.5s) 경과 → 번호 표시
-                        if Date().timeIntervalSince(self.lastSpaceChangeDate) > 0.5 {
-                            let order = ThumbnailNavigator.readingOrder(updated)
-                            NumberOverlay.shared.show(thumbnails: updated, order: order)
-                            self.idsSince = nil
-                        }
-                        // debounce 중이면 idsSince 유지 → 다음 폴링에서 재확인
-                    } else if !updated.isEmpty {
-                        self.idsSince = newIDs
-                    }
+                    self.scheduleNumberOverlayShow()
                 } else if self.currentIndex >= 0 && !updated.isEmpty {
-                    // 안정 상태에서 좌표만 변경 (Spaces 바 레이아웃 등)
+                    // 같은 창들인데 좌표만 변경 (Spaces 바 레이아웃 등)
                     let currentWindowID = self.thumbnails[self.currentIndex].windowID
                     if let newIndex = updated.firstIndex(where: { $0.windowID == currentWindowID }) {
                         self.thumbnails = updated
@@ -125,10 +108,25 @@ final class KeyTap {
         mcWatcher = timer
     }
 
+    // 0.65s 후 번호 오버레이 표시 예약. 토큰으로 이전 예약 자동 무효화.
+    private func scheduleNumberOverlayShow() {
+        showToken += 1
+        let token = showToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+            guard let self, self.showToken == token else { return }
+            guard MissionControlDetector.isActive() else { return }
+            let fresh = ThumbnailLocator.fetchThumbnails()
+            guard !fresh.isEmpty else { return }
+            self.thumbnails = fresh
+            let order = ThumbnailNavigator.readingOrder(fresh)
+            NumberOverlay.shared.show(thumbnails: fresh, order: order)
+        }
+    }
+
     private func resetState() {
+        showToken += 1  // 대기 중인 show 예약 취소
         currentIndex = -1
         thumbnails = []
-        idsSince = nil
         overlay.hide()
         NumberOverlay.shared.hide()
     }
@@ -160,7 +158,7 @@ final class KeyTap {
         // 숫자 1~9 = 18,19,20,21,23,22,26,28,25
         switch keyCode {
         case 18, 19, 20, 21, 22, 23, 25, 26, 28: // 1~9
-            // 수식어 키 조합(Cmd+Shift+4 캡처 등)은 통과 — contains로 비트 명시 체크
+            // 수식어 키 조합(Cmd+Shift+4 캡처 등)은 통과
             if flags.contains(.maskCommand) || flags.contains(.maskShift) ||
                flags.contains(.maskAlternate) || flags.contains(.maskControl) {
                 Logger.debug("[KeyTap] 숫자 keyCode=\(keyCode) 수식어 감지 flags=\(flags.rawValue) → 통과")

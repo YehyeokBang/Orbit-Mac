@@ -15,7 +15,6 @@ final class KeyTap {
     private var lastFrameKey = ""
     private var stableCount = 0
     private let stableRequired = 2
-    private var lastActivePID: pid_t = 0
 
     func start() {
         guard AXIsProcessTrusted() else {
@@ -73,10 +72,6 @@ final class KeyTap {
             guard let self else { return }
             let isActive = MissionControlDetector.isActive()
 
-            if !isActive, let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier {
-                self.lastActivePID = pid
-            }
-
             if self.mcWasActive && !isActive {
                 self.resetState()
                 Logger.log("[KeyTap] MC 종료 감지 → 리셋")
@@ -107,9 +102,6 @@ final class KeyTap {
                                 let order = ThumbnailNavigator.readingOrder(updated)
                                 NumberOverlay.shared.show(thumbnails: updated, order: order)
                                 Logger.log("[KeyTap] 프레임 안정화 감지 → 번호 표시")
-                                if self.currentIndex < 0 {
-                                    self.autoFocusPreviousWindow()
-                                }
                             }
                         } else {
                             // 이미 안정화 상태 — 번호·선택 오버레이 위치만 갱신
@@ -153,20 +145,6 @@ final class KeyTap {
         thumbnails.sorted { $0.windowID < $1.windowID }.map { t in
             "\(Int(t.frame.minX)),\(Int(t.frame.minY)),\(Int(t.frame.width)),\(Int(t.frame.height))"
         }.joined(separator: "|")
-    }
-
-    // MC 활성화 직전 포커스된 창을 찾아 자동으로 커서를 이동하고 선택 오버레이를 표시.
-    // PID로 매칭하고, 없으면 아무것도 안 함 (첫 번째로 fallback하지 않음 — 의도치 않은 포커스 방지).
-    private func autoFocusPreviousWindow() {
-        guard lastActivePID != 0,
-              let idx = thumbnails.firstIndex(where: { $0.ownerPID == lastActivePID }) else {
-            Logger.log("[KeyTap] 이전 창 매칭 실패 (pid=\(lastActivePID)) → 자동 포커스 생략")
-            return
-        }
-        currentIndex = idx
-        CursorWarper.warp(to: thumbnails[idx].center)
-        overlay.show(frame: thumbnails[idx].frame, appName: thumbnails[idx].ownerName)
-        Logger.log("[KeyTap] 이전 창 자동 포커스 → \(thumbnails[idx].ownerName)")
     }
 
     private func resetState() {

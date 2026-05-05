@@ -3,6 +3,7 @@ import Cocoa
 struct WindowThumbnail {
     let windowID: CGWindowID
     let ownerName: String
+    let ownerPID: pid_t
     let frame: CGRect  // Mission Control 활성 중 화면상의 thumbnail 좌표
     var center: CGPoint { CGPoint(x: frame.midX, y: frame.midY) }
 }
@@ -23,6 +24,7 @@ enum ThumbnailLocator {
                 let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
                 let owner = window[kCGWindowOwnerName as String] as? String,
                 let windowID = window[kCGWindowNumber as String] as? CGWindowID,
+                let pid = window[kCGWindowOwnerPID as String] as? pid_t,
                 let bounds = window[kCGWindowBounds as String] as? [String: CGFloat]
             else { continue }
 
@@ -37,7 +39,7 @@ enum ThumbnailLocator {
             )
             guard frame.width > 50 && frame.height > 50 else { continue }
 
-            thumbnails.append(WindowThumbnail(windowID: windowID, ownerName: owner, frame: frame))
+            thumbnails.append(WindowThumbnail(windowID: windowID, ownerName: owner, ownerPID: pid, frame: frame))
         }
 
         // 위→아래 우선, 같은 행이면 왼쪽→오른쪽 (Z 읽기 순서)

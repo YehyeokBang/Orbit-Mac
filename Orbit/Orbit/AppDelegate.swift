@@ -23,6 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(colorSubmenuItem())
         menu.addItem(numberOverlayToggleItem())
+        menu.addItem(numberKeyToggleItem())
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "로그 보기", action: #selector(openLog), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -60,6 +61,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         item.target = self
         item.state = NumberOverlaySettings.shared.isEnabled ? .on : .off
         return item
+    }
+
+    private func numberKeyToggleItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "숫자 키 이동 (1~9)", action: #selector(toggleNumberKey(_:)), keyEquivalent: "")
+        item.target = self
+        item.state = NumberKeySettings.shared.isEnabled ? .on : .off
+        return item
+    }
+
+    @objc private func toggleNumberKey(_ sender: NSMenuItem) {
+        NumberKeySettings.shared.isEnabled.toggle()
+        sender.state = NumberKeySettings.shared.isEnabled ? .on : .off
     }
 
     @objc private func toggleNumberOverlay(_ sender: NSMenuItem) {

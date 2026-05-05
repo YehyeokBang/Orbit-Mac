@@ -1,5 +1,16 @@
 import Cocoa
 
+// 숫자 키(1~9) 직접 이동 온/오프 설정 — 기본값 off
+final class NumberKeySettings {
+    static let shared = NumberKeySettings()
+    private let key = "numberKeyEnabled"
+
+    var isEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: key) }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
+    }
+}
+
 // 숫자 오버레이 온/오프 설정
 final class NumberOverlaySettings {
     static let shared = NumberOverlaySettings()

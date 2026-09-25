@@ -67,7 +67,7 @@ final class NumberOverlay {
         win.backgroundColor = .clear
         win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
         win.ignoresMouseEvents = true
-        win.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
+        win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         win.contentView = NumberOverlayView(
             frame: NSRect(origin: .zero, size: screen.frame.size),
             thumbnails: thumbnails,

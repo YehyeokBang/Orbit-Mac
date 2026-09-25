@@ -24,8 +24,8 @@
 ## 규칙
 
 - 작업 단위는 롤백 가능한 단위를 지양함 (PoC라 WIP 커밋 OK)
-- 브랜치는 `main` 단일 사용 (다른 브랜치 계획 없음)
-- push 기준: `origin main`
+- 변경 작업은 `main`에서 `feature/<작업명>` 브랜치를 만들어 PR로 병합
+- push 기준: 작업 브랜치를 `origin`에 push
 
 ## 예시
 

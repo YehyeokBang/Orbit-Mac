@@ -384,3 +384,24 @@
 **다음 세션 / 후속 작업:**
 - dogfood 계속
 - v0.2 후보: 키 바인딩 커스터마이징 UI
+
+---
+
+## 2026-09-25 — 세션 14 (macOS 27 호환성)
+
+**발견:**
+- macOS 27.0에서 Orbit의 event tap과 watcher는 실행 중이었지만 MC를 감지하지 못함.
+- 실기기 진단 로그: MC 닫힘 시 Dock layer 20 창 없음, MC 열림 시 Dock layer 20 창 생성. 기존 감지 조건은 layer 18만 허용.
+- MC 중 일반 창의 layer 0 좌표는 thumbnail 위치/크기로 변함. WindowManager의 layer 0 창도 함께 나타나 대상 목록에 잘못 들어갈 수 있음.
+
+**한 일:**
+- macOS 27에서 MC 감지에 Dock layer 20 사용, 이전 버전은 layer 18 유지. 사용자는 macOS 26에서 동작을 확인했으나 26의 layer 값은 별도 로그로 확인하지 않음.
+- thumbnail 목록에서 WindowManager 창 제외.
+- 진단 로그를 넣어 원인을 확인한 뒤 제거. 기존 설치본은 `/tmp/Orbit-before-macos27-diagnostics.app`에 백업.
+- Team ID 서명 빌드 후 `/Applications/Orbit.app`에 설치해 서명 검증, MC 진입 시 번호 표시 로그 및 종료 시 리셋 로그 확인.
+
+**남은 확인:**
+- MC 안에서 Tab/방향키 이동 및 Enter 클릭은 사용자 동작과 로그로 확인.
+- 사용자가 색상 오버레이가 보이지 않는다고 보고. SelectionOverlay.show는 호출되고 AppKit은 `visible=true`, `onActiveSpace=true`로 보고함.
+- 번호 배지는 `numberOverlayEnabled=0` 설정으로 꺼져 있음. MC에서 창을 유지하기 위해 두 오버레이에 `.stationary`를 추가했고, 사용자가 동작을 확인함.
+- Dock layer 18/20은 Apple의 보장된 Mission Control 식별자가 아닌 OS별 관측값. macOS 27 이후 미확인 버전에서는 키 입력을 가로채지 않고 진단 로그를 남김.

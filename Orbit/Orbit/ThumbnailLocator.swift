@@ -26,8 +26,8 @@ enum ThumbnailLocator {
                 let bounds = window[kCGWindowBounds as String] as? [String: CGFloat]
             else { continue }
 
-            // Dock, WindowServer, Orbit 자체 창 제외
-            if ["Dock", "Window Server", "Orbit"].contains(owner) { continue }
+            // Dock, WindowServer, WindowManager, Orbit 자체 창 제외
+            if ["Dock", "Window Server", "WindowManager", "Orbit"].contains(owner) { continue }
 
             let frame = CGRect(
                 x: bounds["X"] ?? 0,

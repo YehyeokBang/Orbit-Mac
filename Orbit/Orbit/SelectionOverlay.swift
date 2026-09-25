@@ -47,7 +47,7 @@ final class SelectionOverlay {
         win.backgroundColor = .clear
         win.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)))
         win.ignoresMouseEvents = true
-        win.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
+        win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         win.contentView = OverlayView(frame: NSRect(origin: .zero, size: appKitFrame.size), color: OverlaySettings.shared.color, appName: appName)
         window = win
 

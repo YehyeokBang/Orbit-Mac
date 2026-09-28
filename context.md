@@ -405,3 +405,24 @@
 - 사용자가 색상 오버레이가 보이지 않는다고 보고. SelectionOverlay.show는 호출되고 AppKit은 `visible=true`, `onActiveSpace=true`로 보고함.
 - 번호 배지는 `numberOverlayEnabled=0` 설정으로 꺼져 있음. MC에서 창을 유지하기 위해 두 오버레이에 `.stationary`를 추가했고, 사용자가 동작을 확인함.
 - Dock layer 18/20은 Apple의 보장된 Mission Control 식별자가 아닌 OS별 관측값. macOS 27 이후 미확인 버전에서는 키 입력을 가로채지 않고 진단 로그를 남김.
+
+---
+
+## 2026-09-28 — 세션 15 (Mission Control 오탐 수정)
+
+**발견:**
+- MC 닫힌 상태에서 Dock layer 20 창이 20:27:13~16에 나타남. 실제 MC와 window ID, 이름, bounds가 동일해 CG 창 정보만으로 구분 불가.
+- 접근성 권한이 있는 Orbit 진단 빌드에서 실제 MC 진입 시 Dock 직접 자식 `AXGroup`, `AXIdentifier=mc`가 나타나는 것을 확인.
+- MC 종료 중 layer 20 창이 남아 있어도 `mc` 그룹은 먼저 사라짐.
+
+**한 일:**
+- `feature/mission-control-false-positive` 브랜치에서 macOS 27의 기존 layer 조건에 Dock의 `mc` 접근성 그룹 확인을 추가.
+- 접근성 조회 실패/시간 초과는 비활성 처리. event tap을 오래 막지 않도록 개별 요청 10ms, 자식 순회 시작 기한 30ms 제한.
+- macOS 26 이하의 layer 18 동작은 유지. 전체 UI 트리 진단 로그는 제거하고 오탐 후보 차단 시에만 한 줄 기록.
+- Release 서명 빌드 후 `/Applications/Orbit.app`에 설치, 서명 검증. 이전 앱은 `/tmp/Orbit-before-false-positive.app`에 백업.
+- 실제 MC 진입의 프레임 안정화 로그, UI 그룹이 사라진 뒤 입력 통과/종료 리셋 로그 확인.
+
+**남은 확인:**
+- 설치 후 로그에서 실제 MC 안의 방향키 창 이동, Enter 클릭 및 종료 리셋 확인(21:21:51~52). 일반 화면 오탐의 장기 재발 여부는 dogfood 필요.
+- `mc` 식별자는 실기기 관측값이며 Apple의 호환성 보장 대상 아님. 변경되면 안전하게 입력 통과.
+- 사용자 요청으로 개인 계정 작성자 정보를 확인하고 작업 브랜치 push 및 PR 진행. 릴리스는 머지 후 별도 진행.

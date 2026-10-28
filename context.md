@@ -426,3 +426,20 @@
 - 설치 후 로그에서 실제 MC 안의 방향키 창 이동, Enter 클릭 및 종료 리셋 확인(21:21:51~52). 일반 화면 오탐의 장기 재발 여부는 dogfood 필요.
 - `mc` 식별자는 실기기 관측값이며 Apple의 호환성 보장 대상 아님. 변경되면 안전하게 입력 통과.
 - 사용자 요청으로 개인 계정 작성자 정보를 확인하고 작업 브랜치 push 및 PR 진행. 릴리스는 머지 후 별도 진행.
+
+---
+
+## 2026-10-28 — 세션 16 (macOS 27.2 Mission Control 감지)
+
+**발견:**
+- macOS 27.2에서 MC가 열려 있어도 Dock의 `AXGroup mc`가 나타나지 않음. MC 진입 전후 Dock AX 트리(깊이 6), Dock 속성 목록이 동일.
+- 창 목록 diff: MC 중에만 WindowManager layer 19(전체 화면 크기, 2개)와 layer 14(2560×96, 2개)가 onscreen. 20ms 폴링에서 layer 19는 진입 시 Dock layer 20보다 먼저 생기고 종료 시 먼저 사라짐.
+
+**한 일:**
+- macOS 27 판별을 접근성 조회에서 `WindowManager` layer 19 창 확인으로 교체. 같은 CG 창 목록을 쓰므로 event tap 안의 AX 호출이 없어짐.
+- Xcode 없이 `swiftc`로 ad-hoc 서명 빌드해 실행. MC 진입 시 번호 표시, Tab 이동, Enter 클릭, 종료 리셋 로그 확인(14:37:54~57).
+
+**남은 확인:**
+- MC가 닫혀 있는데 Dock layer 20이 나타나는 오탐 상황은 재현하지 못함. 그때 WindowManager layer 19가 함께 뜨는지 미확인. dogfood 필요.
+- Stage Manager 등 다른 기능이 같은 WindowManager 창을 쓰는지 미확인.
+- 이 Mac에는 Xcode와 코드 서명 인증서가 없어 설치본(`/Applications/Orbit.app`)은 교체하지 않음.
